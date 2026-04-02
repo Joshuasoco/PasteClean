@@ -14,11 +14,11 @@ function stripInlineMarkdown(value) {
     .replace(/~~(.*?)~~/g, '$1')
 }
 
-export function plainMode(text) {
+export function plainMode(text, options = {}) {
   const strippedText = stripInlineMarkdown(stripMarkdownLinks(text))
   let structuralTokensRemoved = 0
 
-  const cleaned = strippedText
+  let cleaned = strippedText
     .split('\n')
     .map((line) => {
       const nextLine = line
@@ -34,13 +34,14 @@ export function plainMode(text) {
           structuralTokensRemoved += 1
           return ''
         })
-        .replace(TRAILING_WHITESPACE, '')
 
-      return nextLine
+      return options.cleanWhitespace === false ? nextLine : nextLine.replace(TRAILING_WHITESPACE, '')
     })
     .join('\n')
-    .replace(EXCESS_BLANK_LINES, '\n\n')
-    .replace(/^\n+|\n+$/g, '')
+
+  if (options.cleanWhitespace !== false) {
+    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+  }
 
   return {
     text: cleaned,
@@ -48,7 +49,7 @@ export function plainMode(text) {
       title: 'Plain text cleanup',
       stats: [
         { label: 'Formatting markers removed', value: structuralTokensRemoved },
-        { label: 'Paragraphs kept readable', value: cleaned ? cleaned.split('\n\n').length : 0 },
+        { label: 'Paragraphs kept readable', value: cleaned ? cleaned.split(/\n{2,}/).length : 0 },
       ],
       highlights: [
         'Markdown markers and quote prefixes were stripped.',

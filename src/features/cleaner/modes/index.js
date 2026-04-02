@@ -87,16 +87,16 @@ export function getModeDefinition(modeId) {
   return MODE_MAP.get(modeId) ?? MODE_MAP.get('plain')
 }
 
-export function applyFormatMode(text, modeId) {
+export function applyFormatMode(text, modeId, options) {
   switch (modeId) {
     case 'markdown':
-      return markdownMode(text)
+      return markdownMode(text, options)
     case 'code':
-      return codeMode(text)
+      return codeMode(text, options)
     case 'email':
-      return emailMode(text)
+      return emailMode(text, options)
     case 'plain':
     default:
-      return plainMode(text)
+      return plainMode(text, options)
   }
 }

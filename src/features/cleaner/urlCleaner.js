@@ -75,7 +75,11 @@ function findRedirectTarget(url) {
   return null
 }
 
-function unwrapRedirect(url) {
+function unwrapRedirect(url, enabled = true) {
+  if (!enabled) {
+    return { url, redirectSources: [] }
+  }
+
   let currentUrl = url
   const redirectSources = []
 
@@ -173,7 +177,7 @@ function splitTrailingPunctuation(value) {
   return { core, trailing }
 }
 
-function cleanSingleUrl(rawUrl) {
+function cleanSingleUrl(rawUrl, options = {}) {
   const { core, trailing } = splitTrailingPunctuation(rawUrl)
 
   let parsedUrl
@@ -184,12 +188,12 @@ function cleanSingleUrl(rawUrl) {
     return null
   }
 
-  const { url: unwrappedUrl, redirectSources } = unwrapRedirect(parsedUrl)
+  const { url: unwrappedUrl, redirectSources } = unwrapRedirect(parsedUrl, options.unwrapRedirects !== false)
   const removedParams = []
   const filteredEntries = []
 
   for (const [name, value] of unwrappedUrl.searchParams.entries()) {
-    if (isTrackingParam(name)) {
+    if (options.stripTrackingParams !== false && isTrackingParam(name)) {
       removedParams.push(`${name}=${value}`)
       continue
     }
@@ -204,7 +208,8 @@ function cleanSingleUrl(rawUrl) {
     cleanedUrl.searchParams.append(name, value)
   }
 
-  const readableUrl = formatReadableUrl(cleanedUrl)
+  const readableUrl =
+    options.decodeReadableUrls === false ? cleanedUrl.toString() : formatReadableUrl(cleanedUrl)
   const finalUrl = `${readableUrl}${trailing}`
   const changed = finalUrl !== rawUrl
 
@@ -212,7 +217,9 @@ function cleanSingleUrl(rawUrl) {
     return null
   }
 
-  const decoded = readableUrl !== `${cleanedUrl.protocol}//${cleanedUrl.host}${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`
+  const decoded =
+    options.decodeReadableUrls !== false &&
+    readableUrl !== `${cleanedUrl.protocol}//${cleanedUrl.host}${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`
 
   return {
     originalUrl: rawUrl,
@@ -228,11 +235,11 @@ function cleanSingleUrl(rawUrl) {
   }
 }
 
-export function cleanUrlsInText(value) {
+export function cleanUrlsInText(value, options = {}) {
   const urlChanges = []
 
   const text = value.replace(URL_PATTERN, (match) => {
-    const cleaned = cleanSingleUrl(match)
+    const cleaned = cleanSingleUrl(match, options)
 
     if (!cleaned) {
       return match

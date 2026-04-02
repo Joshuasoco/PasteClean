@@ -27,7 +27,8 @@ body {
 }
 
 button,
-textarea {
+textarea,
+input {
   font: inherit;
 }
 
@@ -39,18 +40,31 @@ code {
   font-family: 'Consolas', 'SFMono-Regular', monospace;
 }
 
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.12rem 0.35rem;
+  border: 2px solid #111827;
+  background: #ffffff;
+  box-shadow: 2px 2px 0 #111827;
+  font-size: 0.88em;
+  font-weight: 700;
+}
+
 #root {
   min-height: 100vh;
 }
 
 .shell {
-  width: min(1180px, calc(100% - 2rem));
+  width: min(1200px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 2.25rem 0 3rem;
 }
 
 .hero {
-  max-width: 760px;
+  max-width: 780px;
   margin-bottom: 1.5rem;
 }
 
@@ -80,7 +94,7 @@ h2 {
 
 h1 {
   font-size: clamp(2.4rem, 5vw, 4.7rem);
-  max-width: 12ch;
+  max-width: 13ch;
 }
 
 h2 {
@@ -94,23 +108,27 @@ h2 {
 
 .lede {
   margin: 1rem 0 0;
-  max-width: 64ch;
+  max-width: 66ch;
 }
 
 .modeSection,
+.ruleSection,
 .panel,
 .infoCard,
 .diffCard,
-.diffEmpty {
+.diffEmpty,
+.overlayCard {
   border: 3px solid #111827;
   background: #fffdf8;
   box-shadow: 10px 10px 0 #111827;
 }
 
 .modeSection,
+.ruleSection,
 .infoCard,
 .diffCard,
-.diffEmpty {
+.diffEmpty,
+.overlayCard {
   padding: 1.25rem;
 }
 
@@ -119,24 +137,81 @@ h2 {
   background: #ffefe2;
 }
 
+.ruleSection {
+  margin-bottom: 1.25rem;
+  background: #edf8ff;
+}
+
 .modeHeader,
 .panelHeader,
-.diffHeader {
+.diffHeader,
+.toolbar,
+.actionRow {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
   align-items: flex-start;
+  gap: 1rem;
+}
+
+.modeHeader,
+.panelHeader,
+.diffHeader,
+.toolbar {
+  justify-content: space-between;
+}
+
+.actionRow {
+  flex-wrap: wrap;
+}
+
+.toolbar {
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.shortcutPill,
+.statusPill,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.8rem;
+  border: 3px solid #111827;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.shortcutPill {
+  background: #fffdf8;
+}
+
+.statusPill {
+  background: #ffffff;
+  min-height: 2.7rem;
+  opacity: 0.8;
+}
+
+.statusPillVisible {
+  background: #dff8eb;
+  opacity: 1;
 }
 
 .modeGrid,
+.ruleGrid,
 .workspace,
 .insights,
-.diffCols {
+.diffCols,
+.overlayGrid {
   display: grid;
 }
 
 .modeGrid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.ruleGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.9rem;
   margin-top: 1rem;
 }
@@ -152,8 +227,13 @@ h2 {
   transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
 }
 
-.modeButton:hover {
+.modeButton:hover,
+.secondaryButton:hover,
+.copyButton:hover:not(:disabled) {
   transform: translate(-2px, -2px);
+}
+
+.modeButton:hover {
   box-shadow: 7px 7px 0 #111827;
 }
 
@@ -162,13 +242,15 @@ h2 {
   box-shadow: 7px 7px 0 #ff7a59;
 }
 
-.modeButtonTitle {
+.modeButtonTitle,
+.toggleTitle {
   font-family: 'Poppins', sans-serif;
   font-size: 1.05rem;
   font-weight: 700;
 }
 
-.modeButtonDescription {
+.modeButtonDescription,
+.toggleDescription {
   color: #374151;
   font-size: 0.95rem;
 }
@@ -187,8 +269,59 @@ h2 {
 }
 
 .secondaryButton:hover {
-  transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0 #111827;
+}
+
+.toggleCard {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 1rem;
+  border: 3px solid #111827;
+  background: #fffdf8;
+  box-shadow: 5px 5px 0 #111827;
+  cursor: pointer;
+}
+
+.toggleCard input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggleVisual {
+  width: 3.55rem;
+  height: 2rem;
+  border: 3px solid #111827;
+  background: #f3f4f6;
+  position: relative;
+  transition: background 120ms ease;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 50%;
+  left: 0.2rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  background: #111827;
+  transform: translateY(-50%);
+  transition: transform 120ms ease;
+}
+
+.toggleCard input:checked + .toggleVisual {
+  background: #7bdff2;
+}
+
+.toggleCard input:checked + .toggleVisual .toggleKnob {
+  transform: translate(1.35rem, -50%);
+}
+
+.toggleCopy {
+  display: grid;
+  gap: 0.25rem;
 }
 
 .workspace {
@@ -199,7 +332,7 @@ h2 {
 .panel {
   display: flex;
   flex-direction: column;
-  min-height: 470px;
+  min-height: 500px;
 }
 
 .panelAccent {
@@ -210,22 +343,18 @@ h2 {
   padding: 1.25rem 1.25rem 0;
 }
 
-.diffHeader {
-  margin-bottom: 1rem;
-}
-
 .pill {
   flex-shrink: 0;
   align-self: center;
-  padding: 0.4rem 0.8rem;
-  border: 3px solid #111827;
   background: #ffd166;
-  font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .pillAlt {
   background: #7bdff2;
+}
+
+.pillLive {
+  background: #ff7a59;
 }
 
 .editor {
@@ -264,7 +393,6 @@ h2 {
 }
 
 .copyButton:hover:not(:disabled) {
-  transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0 #ff7a59;
 }
 
@@ -334,6 +462,46 @@ h2 {
   margin-top: 1.25rem;
 }
 
+.diffHeader {
+  margin-bottom: 1rem;
+}
+
+.overlayGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.overlayCardBefore {
+  background: #fff4eb;
+}
+
+.overlayCardAfter {
+  background: #eafff0;
+}
+
+.overlayText {
+  margin: 0;
+  font-family: 'Consolas', 'SFMono-Regular', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diffToken {
+  border-radius: 0.1rem;
+}
+
+.diffTokenRemoved {
+  background: #ffb4ab;
+  color: #5f1010;
+  box-shadow: 0 0 0 2px #ffb4ab;
+}
+
+.diffTokenAdded {
+  background: #9ce8b2;
+  color: #13401d;
+  box-shadow: 0 0 0 2px #9ce8b2;
+}
+
 .diffGrid {
   display: grid;
   gap: 1rem;
@@ -377,8 +545,9 @@ h2 {
   font-weight: 700;
 }
 
-@media (max-width: 980px) {
-  .modeGrid {
+@media (max-width: 1024px) {
+  .modeGrid,
+  .ruleGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -386,12 +555,13 @@ h2 {
 @media (max-width: 900px) {
   .workspace,
   .insights,
+  .overlayGrid,
   .diffCols {
     grid-template-columns: 1fr;
   }
 
   .panel {
-    min-height: 380px;
+    min-height: 400px;
   }
 }
 
@@ -403,28 +573,34 @@ h2 {
   }
 
   .modeSection,
+  .ruleSection,
   .panel,
   .infoCard,
   .diffCard,
   .diffEmpty,
+  .overlayCard,
   .eyebrow {
     box-shadow: 6px 6px 0 #111827;
   }
 
   .modeHeader,
   .panelHeader,
-  .diffHeader {
+  .diffHeader,
+  .toolbar {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .modeGrid {
+  .modeGrid,
+  .ruleGrid {
     grid-template-columns: 1fr;
   }
 
   .pill,
   .copyButton,
-  .secondaryButton {
+  .secondaryButton,
+  .shortcutPill,
+  .statusPill {
     align-self: flex-start;
   }
 

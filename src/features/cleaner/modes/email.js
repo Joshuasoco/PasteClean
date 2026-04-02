@@ -3,7 +3,7 @@ const EXCESS_BLANK_LINES = /\n{3,}/g
 const REPLY_BOUNDARY_PATTERN =
   /^(On .+wrote:|From:\s.+|Sent:\s.+|To:\s.+|Subject:\s.+|-{2,}\s*Original Message\s*-{2,})$/i
 
-export function emailMode(text) {
+export function emailMode(text, options = {}) {
   const lines = text.split('\n')
   const keptLines = []
   let quotedLinesRemoved = 0
@@ -20,10 +20,14 @@ export function emailMode(text) {
       continue
     }
 
-    keptLines.push(line.replace(TRAILING_WHITESPACE, ''))
+    keptLines.push(options.cleanWhitespace === false ? line : line.replace(TRAILING_WHITESPACE, ''))
   }
 
-  const cleaned = keptLines.join('\n').replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+  let cleaned = keptLines.join('\n')
+
+  if (options.cleanWhitespace !== false) {
+    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+  }
 
   return {
     text: cleaned,

@@ -1,14 +1,14 @@
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
 
-export function markdownMode(text) {
+export function markdownMode(text, options = {}) {
   let normalizedHeadings = 0
   let normalizedBullets = 0
 
-  const cleaned = text
+  let cleaned = text
     .split('\n')
     .map((line) => {
-      const trimmedRight = line.replace(TRAILING_WHITESPACE, '')
+      const trimmedRight = options.cleanWhitespace === false ? line : line.replace(TRAILING_WHITESPACE, '')
       const normalizedHeading = trimmedRight.replace(/^\s{0,3}(#{1,6})([^#\s])/u, (match, hashes, content) => {
         normalizedHeadings += 1
         return `${hashes} ${content}`
@@ -22,8 +22,10 @@ export function markdownMode(text) {
       return normalizedBullet
     })
     .join('\n')
-    .replace(EXCESS_BLANK_LINES, '\n\n')
-    .replace(/^\n+|\n+$/g, '')
+
+  if (options.cleanWhitespace !== false) {
+    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+  }
 
   return {
     text: cleaned,

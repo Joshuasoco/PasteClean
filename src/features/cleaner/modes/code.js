@@ -19,10 +19,10 @@ function removeLineNumberPrefix(line) {
   return line
 }
 
-export function codeMode(text) {
+export function codeMode(text, options = {}) {
   let lineNumbersRemoved = 0
 
-  const cleaned = text
+  let cleaned = text
     .split('\n')
     .map((line) => {
       const withoutNumber = removeLineNumberPrefix(line)
@@ -31,11 +31,15 @@ export function codeMode(text) {
         lineNumbersRemoved += 1
       }
 
-      return withoutNumber.replace(TRAILING_WHITESPACE, '')
+      return options.cleanWhitespace === false
+        ? withoutNumber
+        : withoutNumber.replace(TRAILING_WHITESPACE, '')
     })
     .join('\n')
-    .replace(EXCESS_BLANK_LINES, '\n\n\n')
-    .replace(/^\n+|\n+$/g, '')
+
+  if (options.cleanWhitespace !== false) {
+    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n\n').replace(/^\n+|\n+$/g, '')
+  }
 
   return {
     text: cleaned,

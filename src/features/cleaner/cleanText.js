@@ -3,6 +3,54 @@ import { cleanUrlsInText } from './urlCleaner'
 
 const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g
 
+export const CLEANING_RULES = [
+  {
+    key: 'stripInvisibleChars',
+    label: 'Invisible Unicode',
+    description: 'Remove zero-width spaces, soft hyphens, and BOM characters.',
+  },
+  {
+    key: 'decodeHtmlEntities',
+    label: 'HTML entities',
+    description: 'Decode items like &amp; and &nbsp; before further cleanup.',
+  },
+  {
+    key: 'normalizePunctuation',
+    label: 'Smart punctuation',
+    description: 'Convert curly quotes and long dashes into plain ASCII punctuation.',
+  },
+  {
+    key: 'cleanWhitespace',
+    label: 'Whitespace cleanup',
+    description: 'Trim trailing spaces and collapse duplicate blank lines where the mode allows it.',
+  },
+  {
+    key: 'stripTrackingParams',
+    label: 'Tracking params',
+    description: 'Remove utm_* values and common click identifiers from links.',
+  },
+  {
+    key: 'unwrapRedirects',
+    label: 'Redirect unwrapping',
+    description: 'Recover the real destination from wrapper links.',
+  },
+  {
+    key: 'decodeReadableUrls',
+    label: 'Readable URLs',
+    description: 'Decode percent-encoded URLs into something easier to read and copy.',
+  },
+]
+
+const DEFAULT_CLEANING_OPTIONS = {
+  stripInvisibleChars: true,
+  decodeHtmlEntities: true,
+  normalizePunctuation: true,
+  cleanWhitespace: true,
+  stripTrackingParams: true,
+  unwrapRedirects: true,
+  decodeReadableUrls: true,
+}
+
 const SMART_PUNCTUATION_MAP = new Map([
   ['\u2018', "'"],
   ['\u2019', "'"],
@@ -57,16 +105,39 @@ function countLines(value) {
   return value.split('\n').length
 }
 
-function createBaseText(value) {
-  return normalizeSmartPunctuation(decodeHtmlEntities(value ?? '').replace(/\r\n?/g, '\n').replace(INVISIBLE_CHARACTERS, ''))
+export function getDefaultCleaningOptions() {
+  return { ...DEFAULT_CLEANING_OPTIONS }
 }
 
-export function cleanText(value, mode = 'plain') {
+function resolveCleaningOptions(options) {
+  return { ...DEFAULT_CLEANING_OPTIONS, ...options }
+}
+
+function createBaseText(value, options) {
+  let text = (value ?? '').replace(/\r\n?/g, '\n')
+
+  if (options.decodeHtmlEntities) {
+    text = decodeHtmlEntities(text)
+  }
+
+  if (options.normalizePunctuation) {
+    text = normalizeSmartPunctuation(text)
+  }
+
+  if (options.stripInvisibleChars) {
+    text = text.replace(INVISIBLE_CHARACTERS, '')
+  }
+
+  return text
+}
+
+export function cleanText(value, mode = 'plain', options = DEFAULT_CLEANING_OPTIONS) {
   const original = value ?? ''
-  const baseText = createBaseText(original)
+  const cleaningOptions = resolveCleaningOptions(options)
+  const baseText = createBaseText(original, cleaningOptions)
   const modeDefinition = getModeDefinition(mode)
-  const modeResult = applyFormatMode(baseText, modeDefinition.id)
-  const urlResult = cleanUrlsInText(modeResult.text)
+  const modeResult = applyFormatMode(baseText, modeDefinition.id, cleaningOptions)
+  const urlResult = cleanUrlsInText(modeResult.text, cleaningOptions)
   const cleanedText = urlResult.text
 
   return {
@@ -82,5 +153,6 @@ export function cleanText(value, mode = 'plain') {
     modeDescription: modeDefinition.description,
     modeRules: modeDefinition.rules,
     modeSummary: modeResult.summary,
+    enabledRules: cleaningOptions,
   }
 }
