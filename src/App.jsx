@@ -27,9 +27,13 @@ function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions())
+  const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('Live preview is active.')
+  const [lastAction, setLastAction] = useState('Live preview is active.')
   const [isPasting, setIsPasting] = useState(false)
   const [activeMenu, setActiveMenu] = useState(null)
+  const [recoverState, setRecoverState] = useState(null)
+  const [displayedOutput, setDisplayedOutput] = useState('')
   const menuWrapRef = useRef(null)
 
   const deferredInput = useDeferredValue(input)
@@ -40,7 +44,15 @@ function App() {
     [cleaningOptions, deferredInput, deferredMode]
   )
 
-  const { history, clearHistory, historyLimit } = usePasteHistory({
+  useEffect(() => {
+    if (!livePreviewEnabled) {
+      return
+    }
+
+    setDisplayedOutput(result.cleanedText)
+  }, [livePreviewEnabled, result.cleanedText])
+
+  const { history, setHistory, clearHistory, historyLimit } = usePasteHistory({
     input,
     result,
     mode,
@@ -102,6 +114,7 @@ function App() {
 
       if (!pastedText) {
         setToast('Clipboard is empty.')
+        setLastAction('Clipboard is empty.')
         return
       }
 
@@ -109,8 +122,10 @@ function App() {
         setInput(pastedText)
       })
       setToast('Pasted from clipboard.')
+      setLastAction('Pasted from clipboard.')
     } catch {
       setToast('Clipboard access was blocked by the browser.')
+      setLastAction('Clipboard access was blocked by the browser.')
     } finally {
       setIsPasting(false)
     }
@@ -121,11 +136,18 @@ function App() {
       return
     }
 
+    setDisplayedOutput(result.cleanedText)
+
     try {
       await navigator.clipboard.writeText(result.cleanedText)
-      setToast('Cleaned text copied to clipboard.')
+      const message = livePreviewEnabled
+        ? 'Cleaned text copied to clipboard.'
+        : 'Output refreshed and copied to clipboard.'
+      setToast(message)
+      setLastAction(message)
     } catch {
       setToast('Unable to copy output.')
+      setLastAction('Unable to copy output.')
     }
   }
 
@@ -147,12 +169,31 @@ function App() {
     })
   }
 
+  function handleToggleLivePreview() {
+    setLivePreviewEnabled((current) => {
+      const next = !current
+
+      if (next) {
+        setDisplayedOutput(result.cleanedText)
+        setToast('Live preview resumed.')
+        setLastAction('Live preview resumed.')
+      } else {
+        setToast('Live preview paused. Press Clean to refresh output.')
+        setLastAction('Live preview paused.')
+      }
+
+      return next
+    })
+  }
+
   function handleLoadSample() {
+    setRecoverState({ input, mode, cleaningOptions, history })
     const sample = getModeDefinition(mode).sample
     startTransition(() => {
       setInput(sample)
     })
     setToast('Sample loaded for current mode.')
+    setLastAction('Sample loaded for current mode.')
     setActiveMenu(null)
   }
 
@@ -161,29 +202,53 @@ function App() {
   }
 
   function handleRestoreHistory(entry) {
+    setRecoverState({ input, mode, cleaningOptions, history })
     startTransition(() => {
       setInput(entry.input)
       setMode(entry.mode || DEFAULT_MODE)
     })
     setToast('History entry restored.')
+    setLastAction('History entry restored.')
     setActiveMenu(null)
   }
 
   function handleResetSettings() {
+    setRecoverState({ input, mode, cleaningOptions, history })
     setCleaningOptions(getDefaultCleaningOptions())
     setToast('Settings reset to default.')
+    setLastAction('Settings reset to default.')
     setActiveMenu(null)
   }
 
   function handleClearLocalData() {
+    setRecoverState({ input, mode, cleaningOptions, history })
     clearHistory()
     setCleaningOptions(getDefaultCleaningOptions())
     setToast('Local history cleared.')
+    setLastAction('Local history cleared.')
+    setActiveMenu(null)
+  }
+
+  function handleUndoLastChange() {
+    if (!recoverState) {
+      return
+    }
+
+    startTransition(() => {
+      setInput(recoverState.input)
+      setMode(recoverState.mode)
+      setCleaningOptions(recoverState.cleaningOptions)
+      setHistory(recoverState.history)
+    })
+
+    setRecoverState(null)
+    setToast('Last change was undone.')
+    setLastAction('Last change was undone.')
     setActiveMenu(null)
   }
 
   const inputWords = countWords(input)
-  const outputWords = countWords(result.cleanedText)
+  const outputWords = countWords(displayedOutput)
   const historyPreview = history.slice(0, 5)
   const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
   const smartCleanEnabled = enabledRuleCount === CLEANING_RULES.length
@@ -317,6 +382,11 @@ function App() {
                 <button type="button" className="pcMenuAction" onClick={() => void pasteFromClipboard()}>
                   Paste from clipboard
                 </button>
+                {recoverState ? (
+                  <button type="button" className="pcMenuAction" onClick={handleUndoLastChange}>
+                    Undo last change
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -328,6 +398,11 @@ function App() {
               <button type="button" className="pcMenuAction pcMenuDanger" onClick={handleClearLocalData}>
                 Clear local history
               </button>
+              {recoverState ? (
+                <button type="button" className="pcMenuAction" onClick={handleUndoLastChange}>
+                  Undo last change
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -340,10 +415,18 @@ function App() {
 
             <div className="pcRowBetween pcLiveRow">
               <span>Live Preview</span>
-              <span className="pcSwitch pcSwitchOn" aria-hidden="true">
+              <button
+                type="button"
+                className={`pcSwitch ${livePreviewEnabled ? 'pcSwitchOn' : 'pcSwitchOff'}`}
+                aria-label="Toggle live preview"
+                aria-pressed={livePreviewEnabled}
+                onClick={handleToggleLivePreview}
+              >
                 <span className="pcSwitchKnob" />
-              </span>
+              </button>
             </div>
+
+            <p className="pcQuickHint">Fast actions only. Advanced rules live in Settings.</p>
 
             <p className="pcSubLabel">Processing Modes</p>
             <div className="pcModeToggles">
@@ -356,6 +439,7 @@ function App() {
                   <Sparkles size={16} />
                   <span>Smart Clean</span>
                 </span>
+                <span className="pcPillState">{smartCleanEnabled ? 'On' : 'Off'}</span>
               </button>
 
               <button
@@ -367,6 +451,7 @@ function App() {
                   <Quote size={16} />
                   <span>Fix Quotes</span>
                 </span>
+                <span className="pcPillState">{fixQuotesEnabled ? 'On' : 'Off'}</span>
               </button>
 
               <button
@@ -386,6 +471,7 @@ function App() {
                   <Link2Off size={16} />
                   <span>Strip URLs</span>
                 </span>
+                <span className="pcPillState">{stripUrlsEnabled ? 'On' : 'Off'}</span>
               </button>
             </div>
           </article>
@@ -440,7 +526,7 @@ function App() {
               <p className="pcEditorLabel pcEditorLabelLive">Live Preview</p>
               <textarea
                 className="pcEditor pcEditorPreview"
-                value={result.cleanedText}
+                value={displayedOutput}
                 readOnly
                 placeholder="Your cleaned content will appear here in real-time..."
               />
@@ -464,6 +550,7 @@ function App() {
 
       <footer className="pcFooter">
         <span>(c) 2024 PasteClean</span>
+        <span className="pcFooterAction">Last action: {lastAction}</span>
         <span>{toast || (isPasting ? 'Pasting...' : 'Local storage: active')}</span>
         <span>PWA status: ready</span>
         <span>Privacy</span>

@@ -381,6 +381,12 @@ button {
   font-weight: 500;
 }
 
+.pcQuickHint {
+  margin: 0.75rem 0 0;
+  color: #61695f;
+  font-size: 0.8rem;
+}
+
 .pcRowBetween {
   display: flex;
   justify-content: space-between;
@@ -402,10 +408,16 @@ button {
   display: inline-flex;
   align-items: center;
   padding: 0.12rem;
+  border: 1px solid rgba(34, 42, 35, 0.16);
+  background: #cfcfc9;
 }
 
 .pcSwitchOn {
   background: #127f3d;
+}
+
+.pcSwitchOff {
+  background: #cfcfc9;
 }
 
 .pcSwitchKnob {
@@ -413,7 +425,11 @@ button {
   height: 1.08rem;
   border-radius: 50%;
   background: #ffffff;
-  margin-left: auto;
+  transition: transform 120ms ease;
+}
+
+.pcSwitchOn .pcSwitchKnob {
+  transform: translateX(1.05rem);
 }
 
 .pcModeToggles {
@@ -437,6 +453,10 @@ button {
   font-weight: 500;
   color: #1f241f;
   transition: transform 130ms ease, background 130ms ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
 }
 
 .pcPillToggle:hover {
@@ -448,6 +468,18 @@ button {
   color: #0f2a18;
   border-color: rgba(19, 72, 35, 0.32);
   box-shadow: 0 4px 14px rgba(15, 122, 56, 0.18);
+}
+
+.pcPillState {
+  border-radius: 999px;
+  border: 1px solid rgba(36, 45, 37, 0.16);
+  background: rgba(255, 255, 255, 0.8);
+  color: #374437;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.55rem;
 }
 
 .pcStatsGrid {
@@ -595,6 +627,11 @@ button {
   letter-spacing: 0.1em;
   font-size: 0.72rem;
   font-weight: 500;
+}
+
+.pcFooterAction {
+  text-transform: none;
+  letter-spacing: 0.01em;
 }
 
 @media (max-width: 1080px) {
