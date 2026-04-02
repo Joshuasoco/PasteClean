@@ -223,6 +223,10 @@ button {
   border: 1px solid rgba(40, 49, 40, 0.09);
   background: #fbfbf9;
   color: #242a24;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
 }
 
 .pcMenuRuleText {
@@ -242,6 +246,50 @@ button {
 .pcMenuRuleActive {
   background: #eff9f2;
   border-color: rgba(24, 110, 50, 0.25);
+}
+
+.pcToggleMark {
+  width: 2.8rem;
+  min-width: 2.8rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 42, 35, 0.17);
+  background: #d8d6cf;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  padding: 0.1rem 0.18rem;
+  transition: background 120ms ease;
+}
+
+.pcToggleMarkKnob {
+  width: 1.12rem;
+  height: 1.12rem;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid rgba(24, 32, 25, 0.12);
+  transition: transform 120ms ease;
+}
+
+.pcToggleMarkLabel {
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #344034;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pcToggleMarkOn {
+  background: #27bb5e;
+  border-color: rgba(21, 92, 44, 0.45);
+}
+
+.pcToggleMarkOn .pcToggleMarkKnob {
+  transform: translateX(1.18rem);
+}
+
+.pcToggleMarkOn .pcToggleMarkLabel {
+  color: #ffffff;
 }
 
 .pcMenuItem,
@@ -371,6 +419,12 @@ button {
 .pcModeToggles {
   display: grid;
   gap: 0.58rem;
+}
+
+.pcPillLeft {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .pcPillToggle {

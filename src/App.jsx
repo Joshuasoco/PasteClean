@@ -1,5 +1,5 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { History, Settings, UserCircle2 } from 'lucide-react'
+import { History, Link2Off, Quote, Settings, Sparkles, UserCircle2 } from 'lucide-react'
 import {
   CLEANING_RULES,
   cleanText,
@@ -136,6 +136,11 @@ function App() {
     }))
   }
 
+  function setAllRules(nextValue) {
+    const allRuleState = Object.fromEntries(CLEANING_RULES.map((rule) => [rule.key, nextValue]))
+    setCleaningOptions((current) => ({ ...current, ...allRuleState }))
+  }
+
   function handleModeChange(nextMode) {
     startTransition(() => {
       setMode(nextMode)
@@ -179,9 +184,14 @@ function App() {
 
   const inputWords = countWords(input)
   const outputWords = countWords(result.cleanedText)
-  const visibleRules = CLEANING_RULES.slice(0, 3)
   const historyPreview = history.slice(0, 5)
   const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
+  const smartCleanEnabled = enabledRuleCount === CLEANING_RULES.length
+  const fixQuotesEnabled = Boolean(cleaningOptions.normalizePunctuation)
+  const stripUrlsEnabled =
+    Boolean(cleaningOptions.stripTrackingParams) &&
+    Boolean(cleaningOptions.unwrapRedirects) &&
+    Boolean(cleaningOptions.decodeReadableUrls)
 
   return (
     <main className="pcShell">
@@ -287,6 +297,10 @@ function App() {
                         <strong>{rule.label}</strong>
                         <small>{rule.description}</small>
                       </span>
+                      <span className={`pcToggleMark ${cleaningOptions[rule.key] ? 'pcToggleMarkOn' : ''}`}>
+                        <span className="pcToggleMarkKnob" aria-hidden="true" />
+                        <span className="pcToggleMarkLabel">{cleaningOptions[rule.key] ? 'On' : 'Off'}</span>
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -333,16 +347,46 @@ function App() {
 
             <p className="pcSubLabel">Processing Modes</p>
             <div className="pcModeToggles">
-              {visibleRules.map((rule) => (
-                <button
-                  key={rule.key}
-                  type="button"
-                  className={`pcPillToggle ${cleaningOptions[rule.key] ? 'pcPillToggleActive' : ''}`}
-                  onClick={() => handleToggleRule(rule.key)}
-                >
-                  {rule.label}
-                </button>
-              ))}
+              <button
+                type="button"
+                className={`pcPillToggle ${smartCleanEnabled ? 'pcPillToggleActive' : ''}`}
+                onClick={() => setAllRules(!smartCleanEnabled)}
+              >
+                <span className="pcPillLeft">
+                  <Sparkles size={16} />
+                  <span>Smart Clean</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`pcPillToggle ${fixQuotesEnabled ? 'pcPillToggleActive' : ''}`}
+                onClick={() => handleToggleRule('normalizePunctuation')}
+              >
+                <span className="pcPillLeft">
+                  <Quote size={16} />
+                  <span>Fix Quotes</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`pcPillToggle ${stripUrlsEnabled ? 'pcPillToggleActive' : ''}`}
+                onClick={() => {
+                  const nextValue = !stripUrlsEnabled
+                  setCleaningOptions((current) => ({
+                    ...current,
+                    stripTrackingParams: nextValue,
+                    unwrapRedirects: nextValue,
+                    decodeReadableUrls: nextValue,
+                  }))
+                }}
+              >
+                <span className="pcPillLeft">
+                  <Link2Off size={16} />
+                  <span>Strip URLs</span>
+                </span>
+              </button>
             </div>
           </article>
 
