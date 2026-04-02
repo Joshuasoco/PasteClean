@@ -142,6 +142,15 @@ function App() {
     })
   }
 
+  function handleLoadSample() {
+    const sample = getModeDefinition(mode).sample
+    startTransition(() => {
+      setInput(sample)
+    })
+    setToast('Sample loaded for current mode.')
+    setActiveMenu(null)
+  }
+
   function toggleMenu(menuName) {
     setActiveMenu((current) => (current === menuName ? null : menuName))
   }
@@ -172,6 +181,7 @@ function App() {
   const outputWords = countWords(result.cleanedText)
   const visibleRules = CLEANING_RULES.slice(0, 3)
   const historyPreview = history.slice(0, 5)
+  const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
 
   return (
     <main className="pcShell">
@@ -244,14 +254,56 @@ function App() {
           ) : null}
 
           {activeMenu === 'settings' ? (
-            <div className="pcMenu" role="menu" aria-label="Settings menu">
-              <p className="pcMenuTitle">Settings</p>
-              <button type="button" className="pcMenuAction" onClick={handleResetSettings}>
-                Reset cleaning rules
-              </button>
-              <button type="button" className="pcMenuAction" onClick={() => void pasteFromClipboard()}>
-                Paste from clipboard
-              </button>
+            <div className="pcMenu pcMenuWide" role="menu" aria-label="Settings menu">
+              <p className="pcMenuTitle">Settings ({enabledRuleCount}/{CLEANING_RULES.length} rules on)</p>
+
+              <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">Format mode</p>
+                <div className="pcMenuPills">
+                  {MODE_OPTIONS.map((option) => (
+                    <button
+                      key={`settings-${option.id}`}
+                      type="button"
+                      className={`pcMenuPill ${option.id === mode ? 'pcMenuPillActive' : ''}`}
+                      onClick={() => handleModeChange(option.id)}
+                    >
+                      {getModeLabel(option.id, option.label)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">Cleaning rules</p>
+                <div className="pcMenuRules">
+                  {CLEANING_RULES.map((rule) => (
+                    <button
+                      key={rule.key}
+                      type="button"
+                      className={`pcMenuRule ${cleaningOptions[rule.key] ? 'pcMenuRuleActive' : ''}`}
+                      onClick={() => handleToggleRule(rule.key)}
+                    >
+                      <span className="pcMenuRuleText">
+                        <strong>{rule.label}</strong>
+                        <small>{rule.description}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">Actions</p>
+                <button type="button" className="pcMenuAction" onClick={handleLoadSample}>
+                  Load sample text
+                </button>
+                <button type="button" className="pcMenuAction" onClick={handleResetSettings}>
+                  Reset cleaning rules
+                </button>
+                <button type="button" className="pcMenuAction" onClick={() => void pasteFromClipboard()}>
+                  Paste from clipboard
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -281,14 +333,14 @@ function App() {
 
             <p className="pcSubLabel">Processing Modes</p>
             <div className="pcModeToggles">
-              {visibleRules.map((rule, index) => (
+              {visibleRules.map((rule) => (
                 <button
                   key={rule.key}
                   type="button"
                   className={`pcPillToggle ${cleaningOptions[rule.key] ? 'pcPillToggleActive' : ''}`}
                   onClick={() => handleToggleRule(rule.key)}
                 >
-                  {index === 0 ? 'Smart Clean' : index === 1 ? 'Fix Quotes' : 'Strip URLs'}
+                  {rule.label}
                 </button>
               ))}
             </div>

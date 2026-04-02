@@ -141,6 +141,12 @@ button {
   z-index: 20;
 }
 
+.pcMenuWide {
+  width: 420px;
+  max-height: min(78vh, 640px);
+  overflow: auto;
+}
+
 .pcMenuTitle {
   margin: 0;
   padding: 0.45rem 0.55rem 0.6rem;
@@ -159,6 +165,83 @@ button {
 .pcMenuList {
   display: grid;
   gap: 0.35rem;
+}
+
+.pcMenuSection {
+  padding: 0 0.15rem;
+}
+
+.pcMenuSection + .pcMenuSection {
+  margin-top: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid rgba(42, 51, 42, 0.12);
+}
+
+.pcMenuSectionTitle {
+  margin: 0 0 0.45rem;
+  padding: 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  color: #5b655b;
+  font-weight: 700;
+}
+
+.pcMenuPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0 0.3rem;
+}
+
+.pcMenuPill {
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(40, 49, 40, 0.09);
+  background: #fbfbf9;
+  color: #253025;
+  font-weight: 500;
+  font-size: 0.86rem;
+}
+
+.pcMenuPillActive {
+  background: #29bd5f;
+  border-color: rgba(19, 72, 35, 0.3);
+  color: #102517;
+}
+
+.pcMenuRules {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pcMenuRule {
+  width: 100%;
+  text-align: left;
+  border-radius: 0.72rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(40, 49, 40, 0.09);
+  background: #fbfbf9;
+  color: #242a24;
+}
+
+.pcMenuRuleText {
+  display: grid;
+  gap: 0.05rem;
+}
+
+.pcMenuRuleText strong {
+  font-size: 0.84rem;
+}
+
+.pcMenuRuleText small {
+  font-size: 0.76rem;
+  color: #5a6459;
+}
+
+.pcMenuRuleActive {
+  background: #eff9f2;
+  border-color: rgba(24, 110, 50, 0.25);
 }
 
 .pcMenuItem,
@@ -188,10 +271,13 @@ button {
 
 .pcMenuAction {
   font-weight: 500;
+  margin-top: 0.35rem;
 }
 
 .pcMenuItem:hover,
-.pcMenuAction:hover {
+.pcMenuAction:hover,
+.pcMenuRule:hover,
+.pcMenuPill:hover {
   background: #efeee9;
 }
 
@@ -486,6 +572,10 @@ button {
     right: auto;
     left: 0;
     width: min(280px, calc(100vw - 1.5rem));
+  }
+
+  .pcMenuWide {
+    width: min(360px, calc(100vw - 1.5rem));
   }
 
   .pcRail,
