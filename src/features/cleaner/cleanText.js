@@ -2,8 +2,21 @@ import { applyFormatMode, getModeDefinition } from './modes'
 import { cleanUrlsInText } from './urlCleaner'
 
 const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g
+const AI_EM_DASHES = /\u2014/g
+const EMOJI_PATTERN =
+  /(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*|[#*0-9]\uFE0F?\u20E3)/gu
 
 export const CLEANING_RULES = [
+  {
+    key: 'removeEmoji',
+    label: 'Remove emoji',
+    description: 'Strip emoji characters from the cleaned output.',
+  },
+  {
+    key: 'removeAiEmDash',
+    label: 'Remove AI em dash',
+    description: 'Remove em dashes (—) commonly found in AI-generated writing.',
+  },
   {
     key: 'stripInvisibleChars',
     label: 'Invisible Unicode',
@@ -45,6 +58,8 @@ const DEFAULT_CLEANING_OPTIONS = {
   stripInvisibleChars: true,
   decodeHtmlEntities: true,
   normalizePunctuation: true,
+  removeEmoji: false,
+  removeAiEmDash: false,
   cleanWhitespace: true,
   stripTrackingParams: true,
   unwrapRedirects: true,
@@ -158,8 +173,16 @@ function createBaseText(value, options) {
     text = decodeHtmlEntities(text)
   }
 
+  if (options.removeAiEmDash) {
+    text = text.replace(AI_EM_DASHES, '')
+  }
+
   if (options.normalizePunctuation) {
     text = normalizeSmartPunctuation(text)
+  }
+
+  if (options.removeEmoji) {
+    text = text.replace(EMOJI_PATTERN, '')
   }
 
   if (options.stripInvisibleChars) {
