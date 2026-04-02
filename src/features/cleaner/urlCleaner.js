@@ -1,0 +1,255 @@
+const URL_PATTERN = /\bhttps?:\/\/[^\s<>"']+/gi
+const TRACKING_PARAM_NAMES = new Set([
+  'fbclid',
+  'gclid',
+  'dclid',
+  'msclkid',
+  'mc_cid',
+  'mc_eid',
+  'igshid',
+  '_hsenc',
+  '_hsmi',
+  'mkt_tok',
+  'vero_id',
+])
+const REDIRECT_PARAM_CANDIDATES = ['url', 'u', 'q', 'target', 'dest', 'destination', 'redirect', 'redirect_url', 'redirect_uri', 'r']
+const WRAPPER_HOST_MARKERS = ['google.', 'facebook.com', 'l.instagram.com', 'lnkd.in', 't.co', 'outlook.com', 'safelinks.protection.outlook.com']
+
+function safeDecode(value) {
+  let decoded = value
+
+  for (let index = 0; index < 3; index += 1) {
+    try {
+      const nextValue = decodeURIComponent(decoded)
+
+      if (nextValue === decoded) {
+        break
+      }
+
+      decoded = nextValue
+    } catch {
+      break
+    }
+  }
+
+  return decoded
+}
+
+function isTrackingParam(name) {
+  const lowerName = name.toLowerCase()
+  return lowerName.startsWith('utm_') || TRACKING_PARAM_NAMES.has(lowerName)
+}
+
+function shouldTryUnwrap(url) {
+  const host = url.hostname.toLowerCase()
+  const path = url.pathname.toLowerCase()
+
+  return (
+    WRAPPER_HOST_MARKERS.some((marker) => host.includes(marker)) ||
+    path.includes('/url') ||
+    path.includes('/redirect') ||
+    path.includes('/out') ||
+    path.includes('/link')
+  )
+}
+
+function findRedirectTarget(url) {
+  if (!shouldTryUnwrap(url)) {
+    return null
+  }
+
+  for (const name of REDIRECT_PARAM_CANDIDATES) {
+    const value = url.searchParams.get(name)
+
+    if (!value) {
+      continue
+    }
+
+    const decodedValue = safeDecode(value)
+
+    if (/^https?:\/\//i.test(decodedValue)) {
+      return { target: decodedValue, paramName: name }
+    }
+  }
+
+  return null
+}
+
+function unwrapRedirect(url) {
+  let currentUrl = url
+  const redirectSources = []
+
+  for (let depth = 0; depth < 3; depth += 1) {
+    const found = findRedirectTarget(currentUrl)
+
+    if (!found) {
+      break
+    }
+
+    try {
+      redirectSources.push(`${currentUrl.hostname}${currentUrl.pathname} -> ${found.paramName}`)
+      currentUrl = new URL(found.target)
+    } catch {
+      break
+    }
+  }
+
+  return { url: currentUrl, redirectSources }
+}
+
+function formatDecodedPath(pathname) {
+  const trailingSlash = pathname.endsWith('/') && pathname.length > 1
+  const segments = pathname
+    .split('/')
+    .map((segment, index) => (index === 0 ? '' : safeDecode(segment)))
+  let decodedPath = segments.join('/')
+
+  if (!decodedPath) {
+    decodedPath = '/'
+  }
+
+  if (trailingSlash && !decodedPath.endsWith('/')) {
+    decodedPath += '/'
+  }
+
+  return decodedPath
+}
+
+function formatDecodedQuery(searchParams) {
+  const pairs = []
+
+  for (const [key, value] of searchParams.entries()) {
+    if (value) {
+      pairs.push(`${key}=${value}`)
+    } else {
+      pairs.push(key)
+    }
+  }
+
+  return pairs.length > 0 ? `?${pairs.join('&')}` : ''
+}
+
+function formatDecodedHash(hash) {
+  if (!hash || hash === '#') {
+    return ''
+  }
+
+  return `#${safeDecode(hash.slice(1))}`
+}
+
+function formatReadableUrl(url) {
+  const base = `${url.protocol}//${url.host}`
+  return `${base}${formatDecodedPath(url.pathname)}${formatDecodedQuery(url.searchParams)}${formatDecodedHash(url.hash)}`
+}
+
+function splitTrailingPunctuation(value) {
+  let core = value
+  let trailing = ''
+
+  while (core) {
+    const character = core.at(-1)
+
+    if (/[.,!?;:]/.test(character)) {
+      trailing = character + trailing
+      core = core.slice(0, -1)
+      continue
+    }
+
+    if (/[)\]}]/.test(character)) {
+      const opener = character === ')' ? '(' : character === ']' ? '[' : '{'
+      const openerCount = (core.match(new RegExp(`\\${opener}`, 'g')) ?? []).length
+      const closerCount = (core.match(new RegExp(`\\${character}`, 'g')) ?? []).length
+
+      if (closerCount > openerCount) {
+        trailing = character + trailing
+        core = core.slice(0, -1)
+        continue
+      }
+    }
+
+    break
+  }
+
+  return { core, trailing }
+}
+
+function cleanSingleUrl(rawUrl) {
+  const { core, trailing } = splitTrailingPunctuation(rawUrl)
+
+  let parsedUrl
+
+  try {
+    parsedUrl = new URL(core)
+  } catch {
+    return null
+  }
+
+  const { url: unwrappedUrl, redirectSources } = unwrapRedirect(parsedUrl)
+  const removedParams = []
+  const filteredEntries = []
+
+  for (const [name, value] of unwrappedUrl.searchParams.entries()) {
+    if (isTrackingParam(name)) {
+      removedParams.push(`${name}=${value}`)
+      continue
+    }
+
+    filteredEntries.push([name, value])
+  }
+
+  const cleanedUrl = new URL(unwrappedUrl.toString())
+  cleanedUrl.search = ''
+
+  for (const [name, value] of filteredEntries) {
+    cleanedUrl.searchParams.append(name, value)
+  }
+
+  const readableUrl = formatReadableUrl(cleanedUrl)
+  const finalUrl = `${readableUrl}${trailing}`
+  const changed = finalUrl !== rawUrl
+
+  if (!changed) {
+    return null
+  }
+
+  const decoded = readableUrl !== `${cleanedUrl.protocol}//${cleanedUrl.host}${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`
+
+  return {
+    originalUrl: rawUrl,
+    cleanedUrl: finalUrl,
+    removedItems: [
+      ...redirectSources.map((source) => `Unwrapped redirect from ${source}`),
+      ...removedParams.map((param) => `Removed ${param}`),
+      ...(decoded ? ['Decoded percent-encoding for readability'] : []),
+    ],
+    decoded,
+    unwrapped: redirectSources.length,
+    removedParamsCount: removedParams.length,
+  }
+}
+
+export function cleanUrlsInText(value) {
+  const urlChanges = []
+
+  const text = value.replace(URL_PATTERN, (match) => {
+    const cleaned = cleanSingleUrl(match)
+
+    if (!cleaned) {
+      return match
+    }
+
+    urlChanges.push(cleaned)
+    return cleaned.cleanedUrl
+  })
+
+  return {
+    text,
+    urlChanges,
+    summary: {
+      urlsChanged: urlChanges.length,
+      trackingParamsRemoved: urlChanges.reduce((sum, change) => sum + change.removedParamsCount, 0),
+      redirectsUnwrapped: urlChanges.reduce((sum, change) => sum + change.unwrapped, 0),
+      urlsDecoded: urlChanges.filter((change) => change.decoded).length,
+    },
+  }
+}

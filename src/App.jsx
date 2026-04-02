@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, useDeferredValue } from 'react'
 import { cleanText } from './features/cleaner/cleanText'
 
-const SAMPLE_TEXT = `Here\u2019s a messy paste...\u200B
+const SAMPLE_TEXT = `Here is a messy paste...\u200B
 
-\u201cQuoted text\u201d &amp; weird&nbsp;spacing.   
+"Quarterly plan" &amp; weird&nbsp;spacing.
 
-Another line with a soft hyphen right here: co\u00adoperate.
+Wrapped link:
+https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fdocs%2FQuarterly%2520Plan%3Futm_source%3Dnewsletter%26utm_medium%3Demail%26keep%3D1&sa=D&source=docs
 
-
+Store link:
+https://shop.example.com/New%20Drop?utm_campaign=spring-launch&utm_content=hero-banner&color=blue
 
 Last line \u2014 with extra spaces.   `
 
@@ -46,12 +48,12 @@ function App() {
   return (
     <main className="shell">
       <section className="hero">
-        <p className="eyebrow">Phase 1 - Core Cleaning Engine</p>
-        <h1>Paste messy text. Copy back something clean.</h1>
+        <p className="eyebrow">Phase 2 - URL and Link Tools</p>
+        <h1>Clean paste junk and rescue links in one pass.</h1>
         <p className="lede">
-          PasteClean runs fully in your browser and fixes common paste damage:
-          invisible characters, HTML entities, curly punctuation, duplicate blank
-          lines, and trailing whitespace.
+          PasteClean now keeps the Phase 1 text fixes and adds URL cleanup:
+          tracking parameters are stripped, redirect wrappers are unwrapped, and
+          percent-encoded links become readable before you copy them back out.
         </p>
       </section>
 
@@ -69,7 +71,7 @@ function App() {
             className="editor"
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Paste text from a website, PDF, email, or document..."
+            placeholder="Paste text, URLs, newsletter links, or redirect wrappers..."
             spellCheck={false}
           />
         </article>
@@ -112,7 +114,9 @@ function App() {
             <li>HTML entities decoded</li>
             <li>Smart punctuation normalized</li>
             <li>Blank lines collapsed</li>
-            <li>Trailing whitespace removed</li>
+            <li>UTM and click IDs removed from URLs</li>
+            <li>Redirect wrapper links unwrapped</li>
+            <li>Percent-encoded URLs made readable</li>
           </ul>
         </article>
 
@@ -124,17 +128,69 @@ function App() {
               <dd>{result.removedCharacters}</dd>
             </div>
             <div>
-              <dt>Line count</dt>
-              <dd>
-                {result.lineCountBefore} {'->'} {result.lineCountAfter}
-              </dd>
+              <dt>URLs changed</dt>
+              <dd>{result.urlSummary.urlsChanged}</dd>
             </div>
             <div>
-              <dt>Status</dt>
-              <dd>{result.changed ? 'Cleaned' : 'Already clean'}</dd>
+              <dt>Tracking params removed</dt>
+              <dd>{result.urlSummary.trackingParamsRemoved}</dd>
+            </div>
+            <div>
+              <dt>Redirects unwrapped</dt>
+              <dd>{result.urlSummary.redirectsUnwrapped}</dd>
+            </div>
+            <div>
+              <dt>Readable URL decodes</dt>
+              <dd>{result.urlSummary.urlsDecoded}</dd>
             </div>
           </dl>
         </article>
+      </section>
+
+      <section className="diffSection">
+        <div className="diffHeader">
+          <div>
+            <p className="panelLabel">Before and after</p>
+            <h2>URL diff view</h2>
+          </div>
+          <span className="pill pillAlt">
+            {result.urlChanges.length === 0
+              ? 'No URL changes'
+              : `${result.urlChanges.length} cleaned`}
+          </span>
+        </div>
+
+        {result.urlChanges.length === 0 ? (
+          <article className="diffEmpty">
+            No wrapped or tracked URLs detected yet. Paste a newsletter, search
+            result, or redirect link to see the cleanup diff here.
+          </article>
+        ) : (
+          <div className="diffGrid">
+            {result.urlChanges.map((change) => (
+              <article className="diffCard" key={`${change.originalUrl}-${change.cleanedUrl}`}>
+                <div className="diffCols">
+                  <div className="diffBlock">
+                    <p className="panelLabel">Before</p>
+                    <code>{change.originalUrl}</code>
+                  </div>
+                  <div className="diffBlock diffBlockAfter">
+                    <p className="panelLabel">After</p>
+                    <code>{change.cleanedUrl}</code>
+                  </div>
+                </div>
+
+                <div className="tagRow">
+                  {change.removedItems.map((item) => (
+                    <span className="tag" key={item}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   )

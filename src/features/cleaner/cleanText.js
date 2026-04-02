@@ -1,8 +1,7 @@
+import { applyFormatMode, getModeDefinition } from './modes'
 import { cleanUrlsInText } from './urlCleaner'
 
 const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g
-const TRAILING_WHITESPACE = /[^\S\n]+$/gm
-const EXCESS_BLANK_LINES = /\n[ \t]*\n(?:[ \t]*\n)+/g
 
 const SMART_PUNCTUATION_MAP = new Map([
   ['\u2018', "'"],
@@ -58,18 +57,16 @@ function countLines(value) {
   return value.split('\n').length
 }
 
-export function cleanText(value) {
-  const original = value ?? ''
-  const normalizedText = normalizeSmartPunctuation(
-    decodeHtmlEntities(original)
-      .replace(/\r\n?/g, '\n')
-      .replace(INVISIBLE_CHARACTERS, '')
-      .replace(TRAILING_WHITESPACE, '')
-      .replace(EXCESS_BLANK_LINES, '\n\n')
-      .replace(/^\n+|\n+$/g, '')
-  )
+function createBaseText(value) {
+  return normalizeSmartPunctuation(decodeHtmlEntities(value ?? '').replace(/\r\n?/g, '\n').replace(INVISIBLE_CHARACTERS, ''))
+}
 
-  const urlResult = cleanUrlsInText(normalizedText)
+export function cleanText(value, mode = 'plain') {
+  const original = value ?? ''
+  const baseText = createBaseText(original)
+  const modeDefinition = getModeDefinition(mode)
+  const modeResult = applyFormatMode(baseText, modeDefinition.id)
+  const urlResult = cleanUrlsInText(modeResult.text)
   const cleanedText = urlResult.text
 
   return {
@@ -80,5 +77,10 @@ export function cleanText(value) {
     lineCountAfter: countLines(cleanedText),
     urlChanges: urlResult.urlChanges,
     urlSummary: urlResult.summary,
+    mode: modeDefinition.id,
+    modeLabel: modeDefinition.label,
+    modeDescription: modeDefinition.description,
+    modeRules: modeDefinition.rules,
+    modeSummary: modeResult.summary,
   }
 }

@@ -35,6 +35,10 @@ button {
   cursor: pointer;
 }
 
+code {
+  font-family: 'Consolas', 'SFMono-Regular', monospace;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -46,7 +50,7 @@ button {
 }
 
 .hero {
-  max-width: 720px;
+  max-width: 760px;
   margin-bottom: 1.75rem;
 }
 
@@ -76,7 +80,7 @@ h2 {
 
 h1 {
   font-size: clamp(2.4rem, 5vw, 4.7rem);
-  max-width: 12ch;
+  max-width: 13ch;
 }
 
 h2 {
@@ -85,7 +89,7 @@ h2 {
 
 .lede {
   margin: 1rem 0 0;
-  max-width: 62ch;
+  max-width: 64ch;
   font-size: 1.05rem;
 }
 
@@ -96,7 +100,9 @@ h2 {
 }
 
 .panel,
-.infoCard {
+.infoCard,
+.diffCard,
+.diffEmpty {
   border: 3px solid #111827;
   background: #fffdf8;
   box-shadow: 10px 10px 0 #111827;
@@ -112,12 +118,20 @@ h2 {
   background: #dff8eb;
 }
 
-.panelHeader {
+.panelHeader,
+.diffHeader {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
+}
+
+.panelHeader {
   padding: 1.25rem 1.25rem 0;
+}
+
+.diffHeader {
+  margin-bottom: 1rem;
 }
 
 .pill {
@@ -128,6 +142,10 @@ h2 {
   background: #ffd166;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.pillAlt {
+  background: #7bdff2;
 }
 
 .editor {
@@ -182,12 +200,14 @@ h2 {
 
 .insights {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1.25rem;
   margin-top: 1.25rem;
 }
 
-.infoCard {
+.infoCard,
+.diffCard,
+.diffEmpty {
   padding: 1.25rem;
 }
 
@@ -230,9 +250,58 @@ h2 {
   font-family: 'Poppins', sans-serif;
 }
 
+.diffSection {
+  margin-top: 1.25rem;
+}
+
+.diffGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.diffCols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.diffBlock {
+  padding: 1rem;
+  border: 3px solid #111827;
+  background: #fff3d6;
+}
+
+.diffBlockAfter {
+  background: #dff8eb;
+}
+
+.diffBlock code {
+  display: block;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.tagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.tag {
+  display: inline-flex;
+  padding: 0.45rem 0.7rem;
+  border: 2px solid #111827;
+  background: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .workspace,
-  .insights {
+  .insights,
+  .diffCols {
     grid-template-columns: 1fr;
   }
 
@@ -250,11 +319,14 @@ h2 {
 
   .panel,
   .infoCard,
+  .diffCard,
+  .diffEmpty,
   .eyebrow {
     box-shadow: 6px 6px 0 #111827;
   }
 
-  .panelHeader {
+  .panelHeader,
+  .diffHeader {
     flex-direction: column;
     align-items: stretch;
   }

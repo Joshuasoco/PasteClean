@@ -1,0 +1,42 @@
+const TRAILING_WHITESPACE = /[^\S\n]+$/gm
+const EXCESS_BLANK_LINES = /\n{3,}/g
+const REPLY_BOUNDARY_PATTERN =
+  /^(On .+wrote:|From:\s.+|Sent:\s.+|To:\s.+|Subject:\s.+|-{2,}\s*Original Message\s*-{2,})$/i
+
+export function emailMode(text) {
+  const lines = text.split('\n')
+  const keptLines = []
+  let quotedLinesRemoved = 0
+  let removedHeaderChain = false
+
+  for (const line of lines) {
+    if (REPLY_BOUNDARY_PATTERN.test(line.trim())) {
+      removedHeaderChain = true
+      break
+    }
+
+    if (/^\s*>/.test(line)) {
+      quotedLinesRemoved += 1
+      continue
+    }
+
+    keptLines.push(line.replace(TRAILING_WHITESPACE, ''))
+  }
+
+  const cleaned = keptLines.join('\n').replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+
+  return {
+    text: cleaned,
+    summary: {
+      title: 'Email cleanup',
+      stats: [
+        { label: 'Quoted lines removed', value: quotedLinesRemoved },
+        { label: 'Reply chain removed', value: removedHeaderChain ? 'Yes' : 'No' },
+      ],
+      highlights: [
+        'Quoted reply chains are removed to keep the newest message focused.',
+        'Email text is left in a clean paragraph flow for reuse.',
+      ],
+    },
+  }
+}
