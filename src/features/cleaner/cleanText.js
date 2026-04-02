@@ -113,6 +113,44 @@ function resolveCleaningOptions(options) {
   return { ...DEFAULT_CLEANING_OPTIONS, ...options }
 }
 
+function countOccurrences(value, search) {
+  if (!search) {
+    return 0
+  }
+
+  return value.split(search).length - 1
+}
+
+function applyCustomRules(value, customRules = []) {
+  let nextValue = value
+  let replacementsMade = 0
+  let activeRules = 0
+
+  for (const rule of customRules) {
+    if (!rule?.enabled || !rule.find) {
+      continue
+    }
+
+    activeRules += 1
+    const occurrences = countOccurrences(nextValue, rule.find)
+
+    if (occurrences === 0) {
+      continue
+    }
+
+    replacementsMade += occurrences
+    nextValue = nextValue.split(rule.find).join(rule.replace ?? '')
+  }
+
+  return {
+    text: nextValue,
+    summary: {
+      activeRules,
+      replacementsMade,
+    },
+  }
+}
+
 function createBaseText(value, options) {
   let text = (value ?? '').replace(/\r\n?/g, '\n')
 
@@ -133,12 +171,15 @@ function createBaseText(value, options) {
 
 export function cleanText(value, mode = 'plain', options = DEFAULT_CLEANING_OPTIONS) {
   const original = value ?? ''
-  const cleaningOptions = resolveCleaningOptions(options)
+  const customRules = Array.isArray(options?.customRules) ? options.customRules : []
+  const { customRules: ignoredCustomRules, ...optionValues } = options ?? {}
+  const cleaningOptions = resolveCleaningOptions(optionValues)
   const baseText = createBaseText(original, cleaningOptions)
   const modeDefinition = getModeDefinition(mode)
   const modeResult = applyFormatMode(baseText, modeDefinition.id, cleaningOptions)
   const urlResult = cleanUrlsInText(modeResult.text, cleaningOptions)
-  const cleanedText = urlResult.text
+  const customRuleResult = applyCustomRules(urlResult.text, customRules)
+  const cleanedText = customRuleResult.text
 
   return {
     cleanedText,
@@ -154,5 +195,6 @@ export function cleanText(value, mode = 'plain', options = DEFAULT_CLEANING_OPTI
     modeRules: modeDefinition.rules,
     modeSummary: modeResult.summary,
     enabledRules: cleaningOptions,
+    customRuleSummary: customRuleResult.summary,
   }
 }

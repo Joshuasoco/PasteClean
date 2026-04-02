@@ -64,7 +64,7 @@ kbd {
 }
 
 .hero {
-  max-width: 780px;
+  max-width: 820px;
   margin-bottom: 1.5rem;
 }
 
@@ -101,6 +101,10 @@ h2 {
   font-size: 1.6rem;
 }
 
+.miniHeading {
+  font-size: 1.08rem;
+}
+
 .lede,
 .cardText {
   font-size: 1.05rem;
@@ -108,16 +112,20 @@ h2 {
 
 .lede {
   margin: 1rem 0 0;
-  max-width: 66ch;
+  max-width: 68ch;
 }
 
 .modeSection,
 .ruleSection,
+.customRuleSection,
+.historySection,
 .panel,
 .infoCard,
 .diffCard,
 .diffEmpty,
-.overlayCard {
+.overlayCard,
+.customRuleCard,
+.historyCard {
   border: 3px solid #111827;
   background: #fffdf8;
   box-shadow: 10px 10px 0 #111827;
@@ -125,10 +133,14 @@ h2 {
 
 .modeSection,
 .ruleSection,
+.customRuleSection,
+.historySection,
 .infoCard,
 .diffCard,
 .diffEmpty,
-.overlayCard {
+.overlayCard,
+.customRuleCard,
+.historyCard {
   padding: 1.25rem;
 }
 
@@ -142,11 +154,22 @@ h2 {
   background: #edf8ff;
 }
 
+.customRuleSection {
+  margin-bottom: 1.25rem;
+  background: #fff0f6;
+}
+
+.historySection {
+  margin-top: 1.25rem;
+  background: #f0f7ff;
+}
+
 .modeHeader,
 .panelHeader,
 .diffHeader,
 .toolbar,
-.actionRow {
+.actionRow,
+.customRuleHeader {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
@@ -155,7 +178,8 @@ h2 {
 .modeHeader,
 .panelHeader,
 .diffHeader,
-.toolbar {
+.toolbar,
+.customRuleHeader {
   justify-content: space-between;
 }
 
@@ -187,7 +211,7 @@ h2 {
 .statusPill {
   background: #ffffff;
   min-height: 2.7rem;
-  opacity: 0.8;
+  opacity: 0.82;
 }
 
 .statusPillVisible {
@@ -197,10 +221,13 @@ h2 {
 
 .modeGrid,
 .ruleGrid,
+.customRuleGrid,
 .workspace,
 .insights,
 .diffCols,
-.overlayGrid {
+.overlayGrid,
+.historyGrid,
+.fieldGrid {
   display: grid;
 }
 
@@ -212,6 +239,20 @@ h2 {
 
 .ruleGrid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.customRuleGrid,
+.historyGrid,
+.diffGrid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.fieldGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
   margin-top: 1rem;
 }
@@ -229,7 +270,8 @@ h2 {
 
 .modeButton:hover,
 .secondaryButton:hover,
-.copyButton:hover:not(:disabled) {
+.copyButton:hover:not(:disabled),
+.dangerButton:hover {
   transform: translate(-2px, -2px);
 }
 
@@ -256,7 +298,8 @@ h2 {
 }
 
 .secondaryButton,
-.copyButton {
+.copyButton,
+.dangerButton {
   border: 3px solid #111827;
   padding: 0.8rem 1rem;
   font-weight: 700;
@@ -269,6 +312,15 @@ h2 {
 }
 
 .secondaryButton:hover {
+  box-shadow: 6px 6px 0 #111827;
+}
+
+.dangerButton {
+  background: #ffb4ab;
+  box-shadow: 4px 4px 0 #111827;
+}
+
+.dangerButton:hover {
   box-shadow: 6px 6px 0 #111827;
 }
 
@@ -322,6 +374,39 @@ h2 {
 .toggleCopy {
   display: grid;
   gap: 0.25rem;
+}
+
+.miniToggle {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 700;
+}
+
+.customRuleCard,
+.historyCard {
+  background: #fffdf8;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.field span {
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  border: 3px solid #111827;
+  background: #ffffff;
+  padding: 0.8rem;
+  outline: none;
+}
+
+.field input:focus {
+  box-shadow: 0 0 0 4px #7bdff2;
 }
 
 .workspace {
@@ -414,7 +499,8 @@ h2 {
 
 .ruleList,
 .highlightList,
-.stats {
+.stats,
+.historyStats {
   margin: 0;
 }
 
@@ -429,12 +515,14 @@ h2 {
   gap: 0.7rem;
 }
 
-.stats {
+.stats,
+.historyStats {
   display: grid;
   gap: 0.9rem;
 }
 
-.stats div {
+.stats div,
+.historyStats div {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -442,20 +530,33 @@ h2 {
   border-bottom: 2px solid rgba(17, 24, 39, 0.12);
 }
 
-.stats div:last-child {
+.stats div:last-child,
+.historyStats div:last-child {
   padding-bottom: 0;
   border-bottom: 0;
 }
 
-.stats dt {
+.stats dt,
+.historyStats dt {
   font-weight: 500;
 }
 
-.stats dd {
+.stats dd,
+.historyStats dd {
   margin: 0;
   font-weight: 800;
   font-family: 'Poppins', sans-serif;
   text-align: right;
+}
+
+.historyPreview {
+  margin-top: 1rem;
+}
+
+.historyPreview p:last-child {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .diffSection {
@@ -502,11 +603,6 @@ h2 {
   box-shadow: 0 0 0 2px #9ce8b2;
 }
 
-.diffGrid {
-  display: grid;
-  gap: 1rem;
-}
-
 .diffCols {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
@@ -547,7 +643,8 @@ h2 {
 
 @media (max-width: 1024px) {
   .modeGrid,
-  .ruleGrid {
+  .ruleGrid,
+  .fieldGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -556,12 +653,17 @@ h2 {
   .workspace,
   .insights,
   .overlayGrid,
-  .diffCols {
+  .diffCols,
+  .fieldGrid {
     grid-template-columns: 1fr;
   }
 
   .panel {
     min-height: 400px;
+  }
+
+  .ruleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -574,11 +676,15 @@ h2 {
 
   .modeSection,
   .ruleSection,
+  .customRuleSection,
+  .historySection,
   .panel,
   .infoCard,
   .diffCard,
   .diffEmpty,
   .overlayCard,
+  .customRuleCard,
+  .historyCard,
   .eyebrow {
     box-shadow: 6px 6px 0 #111827;
   }
@@ -586,19 +692,30 @@ h2 {
   .modeHeader,
   .panelHeader,
   .diffHeader,
-  .toolbar {
+  .toolbar,
+  .customRuleHeader {
     flex-direction: column;
     align-items: stretch;
   }
 
   .modeGrid,
-  .ruleGrid {
+  .ruleGrid,
+  .fieldGrid {
     grid-template-columns: 1fr;
+  }
+
+  .toggleCard {
+    grid-template-columns: auto 1fr;
+  }
+
+  .toggleCopy {
+    grid-column: span 2;
   }
 
   .pill,
   .copyButton,
   .secondaryButton,
+  .dangerButton,
   .shortcutPill,
   .statusPill {
     align-self: flex-start;

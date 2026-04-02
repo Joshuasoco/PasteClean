@@ -12,25 +12,58 @@ import {
   getDefaultCleaningOptions,
 } from './features/cleaner/cleanText'
 import { getModeDefinition, getModes } from './features/cleaner/modes'
+import { usePasteHistory } from './hooks/usePasteHistory'
+import { useStoredState } from './hooks/useStoredState'
 import { buildTextDiff } from './utils/buildTextDiff'
+import { exportHistory } from './utils/exportHistory'
+import { STORAGE_KEYS } from './utils/storageKeys'
 
 const MODE_OPTIONS = getModes()
 const DEFAULT_MODE = 'plain'
+
+function createCustomRule() {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    find: '',
+    replace: '',
+    enabled: true,
+  }
+}
+
+function formatSavedAt(value) {
+  try {
+    return new Date(value).toLocaleString()
+  } catch {
+    return value
+  }
+}
 
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
   const [copyState, setCopyState] = useState('idle')
   const [clipboardState, setClipboardState] = useState('idle')
+  const [memoryState, setMemoryState] = useState('idle')
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions())
+  const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
   const deferredInput = useDeferredValue(input)
   const deferredMode = useDeferredValue(mode)
+  const cleaningConfig = useMemo(
+    () => ({ ...cleaningOptions, customRules }),
+    [cleaningOptions, customRules]
+  )
 
   const result = useMemo(
-    () => cleanText(deferredInput, deferredMode, cleaningOptions),
-    [cleaningOptions, deferredInput, deferredMode]
+    () => cleanText(deferredInput, deferredMode, cleaningConfig),
+    [cleaningConfig, deferredInput, deferredMode]
   )
   const diff = useMemo(() => buildTextDiff(input, result.cleanedText), [input, result.cleanedText])
+  const { history, clearHistory, historyLimit } = usePasteHistory({
+    input,
+    result,
+    mode,
+    customRuleSummary: result.customRuleSummary,
+  })
 
   useEffect(() => {
     if (copyState !== 'copied') {
@@ -55,6 +88,18 @@ function App() {
 
     return () => window.clearTimeout(timeoutId)
   }, [clipboardState])
+
+  useEffect(() => {
+    if (memoryState === 'idle') {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setMemoryState('idle')
+    }, 2600)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [memoryState])
 
   const pasteFromClipboard = useEffectEvent(async () => {
     try {
@@ -114,6 +159,65 @@ function App() {
     setCopyState('idle')
   }
 
+  function handleAddCustomRule() {
+    setCustomRules((current) => [...current, createCustomRule()])
+    setMemoryState('rule-saved')
+  }
+
+  function handleCustomRuleChange(ruleId, field, value) {
+    setCustomRules((current) =>
+      current.map((rule) => (rule.id === ruleId ? { ...rule, [field]: value } : rule))
+    )
+    setCopyState('idle')
+  }
+
+  function handleRemoveCustomRule(ruleId) {
+    setCustomRules((current) => current.filter((rule) => rule.id !== ruleId))
+    setMemoryState('rule-removed')
+    setCopyState('idle')
+  }
+
+  function handleRestoreHistory(entry) {
+    startTransition(() => {
+      setInput(entry.input)
+      setMode(entry.mode)
+      setCopyState('idle')
+      setClipboardState('idle')
+      setMemoryState('restored')
+    })
+  }
+
+  function handleExportHistory(format) {
+    const exported = exportHistory(history, format)
+
+    if (!exported) {
+      setMemoryState('export-empty')
+      return
+    }
+
+    setMemoryState(format === 'csv' ? 'exported-csv' : 'exported-txt')
+  }
+
+  function handleClearAllData() {
+    startTransition(() => {
+      setInput('')
+      setMode(DEFAULT_MODE)
+      setCleaningOptions(getDefaultCleaningOptions())
+      setCustomRules([])
+      clearHistory()
+      setCopyState('idle')
+      setClipboardState('idle')
+      setMemoryState('cleared')
+    })
+
+    try {
+      window.localStorage.removeItem(STORAGE_KEYS.history)
+      window.localStorage.removeItem(STORAGE_KEYS.customRules)
+    } catch {
+      return
+    }
+  }
+
   async function handleCopy() {
     if (!result.cleanedText) {
       return
@@ -128,17 +232,18 @@ function App() {
   }
 
   const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
+  const activeCustomRuleCount = customRules.filter((rule) => rule.enabled && rule.find).length
 
   return (
     <main className="shell">
       <section className="hero">
-        <p className="eyebrow">Phase 4 - UX Polish</p>
-        <h1>Live cleanup, rule toggles, and a shortcut-first paste flow.</h1>
+        <p className="eyebrow">Phase 5 - Memory and History</p>
+        <h1>Remember pastes, layer in custom rules, and export your cleanup trail.</h1>
         <p className="lede">
-          PasteClean now updates the output live, lets you switch individual
-          cleanup rules on or off, highlights every text change with a colored
-          overlay, and supports <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> to
-          paste from your clipboard and clean instantly.
+          PasteClean now stores your last {historyLimit} pastes locally, supports
+          custom find and replace rules, exports history as <code>.txt</code> or{' '}
+          <code>.csv</code>, and lets you wipe stored data in one click when you
+          are done.
         </p>
       </section>
 
@@ -186,7 +291,7 @@ function App() {
       <section className="ruleSection">
         <div className="modeHeader">
           <div>
-            <p className="panelLabel">Rule toggles</p>
+            <p className="panelLabel">Built-in rules</p>
             <h2>Choose exactly what gets cleaned</h2>
           </div>
           <span className="pill">{enabledRuleCount}/{CLEANING_RULES.length} enabled</span>
@@ -210,6 +315,86 @@ function App() {
             </label>
           ))}
         </div>
+      </section>
+
+      <section className="customRuleSection">
+        <div className="modeHeader">
+          <div>
+            <p className="panelLabel">Custom replacements</p>
+            <h2>User-defined find and replace rules</h2>
+          </div>
+          <div className="actionRow">
+            <span className="pill pillAlt">{activeCustomRuleCount} active</span>
+            <button type="button" className="secondaryButton" onClick={handleAddCustomRule}>
+              Add custom rule
+            </button>
+          </div>
+        </div>
+
+        {customRules.length === 0 ? (
+          <article className="diffEmpty">
+            No custom rules yet. Add one to replace brand names, repeated phrases,
+            or your own cleanup patterns after the built-in processing runs.
+          </article>
+        ) : (
+          <div className="customRuleGrid">
+            {customRules.map((rule, index) => (
+              <article className="customRuleCard" key={rule.id}>
+                <div className="customRuleHeader">
+                  <div>
+                    <p className="panelLabel">Rule {index + 1}</p>
+                    <h2 className="miniHeading">Literal find and replace</h2>
+                  </div>
+                  <div className="actionRow">
+                    <label className="miniToggle">
+                      <input
+                        type="checkbox"
+                        checked={rule.enabled}
+                        onChange={(event) =>
+                          handleCustomRuleChange(rule.id, 'enabled', event.target.checked)
+                        }
+                      />
+                      <span>{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="dangerButton"
+                      onClick={() => handleRemoveCustomRule(rule.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                <div className="fieldGrid">
+                  <label className="field">
+                    <span>Find</span>
+                    <input
+                      type="text"
+                      value={rule.find}
+                      onChange={(event) =>
+                        handleCustomRuleChange(rule.id, 'find', event.target.value)
+                      }
+                      placeholder="Text to replace"
+                    />
+                  </label>
+
+                  <label className="field">
+                    <span>Replace with</span>
+                    <input
+                      type="text"
+                      value={rule.replace}
+                      onChange={(event) =>
+                        handleCustomRuleChange(rule.id, 'replace', event.target.value)
+                      }
+                      placeholder="Replacement text"
+                    />
+                  </label>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="workspace">
@@ -269,7 +454,7 @@ function App() {
 
       <section className="insights">
         <article className="infoCard">
-          <p className="panelLabel">Active mode</p>
+          <p className="panelLabel">Current session</p>
           <h2>{result.modeLabel}</h2>
           <p className="cardText">{result.modeDescription}</p>
           <ul className="ruleList">
@@ -297,8 +482,12 @@ function App() {
               <dd>{result.urlSummary.urlsChanged}</dd>
             </div>
             <div>
-              <dt>Overlay deltas</dt>
-              <dd>{diff.stats.removedCount + diff.stats.addedCount}</dd>
+              <dt>Custom replacements</dt>
+              <dd>{result.customRuleSummary.replacementsMade}</dd>
+            </div>
+            <div>
+              <dt>Saved pastes</dt>
+              <dd>{history.length}</dd>
             </div>
             {result.modeSummary.stats.map((stat) => (
               <div key={stat.label}>
@@ -322,14 +511,91 @@ function App() {
         </article>
 
         <article className="infoCard">
-          <p className="panelLabel">Live preview</p>
-          <h2>Instant feedback loop</h2>
+          <p className="panelLabel">Memory status</p>
+          <h2>Local-only storage</h2>
           <ul className="ruleList">
-            <li>The cleaned preview updates while you type.</li>
-            <li>Rule toggles re-run the cleaner immediately.</li>
-            <li>The diff overlay tracks every added or removed segment.</li>
+            <li>History is capped at the last {historyLimit} pastes.</li>
+            <li>Custom rules are saved only in this browser.</li>
+            <li>Clear all data wipes saved history and custom rules.</li>
           </ul>
         </article>
+      </section>
+
+      <section className="historySection">
+        <div className="modeHeader">
+          <div>
+            <p className="panelLabel">Memory and history</p>
+            <h2>Restore, export, or clear saved data</h2>
+          </div>
+          <div className="actionRow">
+            <button type="button" className="secondaryButton" onClick={() => handleExportHistory('txt')}>
+              Export .txt
+            </button>
+            <button type="button" className="secondaryButton" onClick={() => handleExportHistory('csv')}>
+              Export .csv
+            </button>
+            <button type="button" className="dangerButton" onClick={handleClearAllData}>
+              Clear all data
+            </button>
+          </div>
+        </div>
+
+        <div className="toolbar">
+          <span className="shortcutPill">Stored locally: history + custom rules</span>
+          <span className={`statusPill ${memoryState !== 'idle' ? 'statusPillVisible' : ''}`}>
+            {memoryState === 'rule-saved' && 'Custom rule added.'}
+            {memoryState === 'rule-removed' && 'Custom rule removed.'}
+            {memoryState === 'restored' && 'History entry restored into the editor.'}
+            {memoryState === 'exported-txt' && 'History exported as a .txt file.'}
+            {memoryState === 'exported-csv' && 'History exported as a .csv file.'}
+            {memoryState === 'export-empty' && 'There is no saved history to export yet.'}
+            {memoryState === 'cleared' && 'Stored history and custom rules were cleared.'}
+            {memoryState === 'idle' && 'History saves automatically after you pause typing.'}
+          </span>
+        </div>
+
+        {history.length === 0 ? (
+          <article className="diffEmpty">
+            No saved pastes yet. Start typing or paste something and PasteClean
+            will remember the latest entries locally.
+          </article>
+        ) : (
+          <div className="historyGrid">
+            {history.map((entry) => (
+              <article className="historyCard" key={entry.id}>
+                <div className="customRuleHeader">
+                  <div>
+                    <p className="panelLabel">{entry.modeLabel}</p>
+                    <h2 className="miniHeading">{formatSavedAt(entry.savedAt)}</h2>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    onClick={() => handleRestoreHistory(entry)}
+                  >
+                    Restore
+                  </button>
+                </div>
+
+                <dl className="historyStats">
+                  <div>
+                    <dt>URLs changed</dt>
+                    <dd>{entry.urlChanges}</dd>
+                  </div>
+                  <div>
+                    <dt>Custom replacements</dt>
+                    <dd>{entry.customReplacements}</dd>
+                  </div>
+                </dl>
+
+                <div className="historyPreview">
+                  <p className="panelLabel">Input preview</p>
+                  <p>{entry.input.slice(0, 180) || 'Empty paste'}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="diffSection">
