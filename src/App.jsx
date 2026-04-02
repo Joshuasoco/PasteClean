@@ -1,24 +1,18 @@
-import { useEffect, useMemo, useState, useDeferredValue } from 'react'
+import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { cleanText } from './features/cleaner/cleanText'
+import { getModeDefinition, getModes } from './features/cleaner/modes'
 
-const SAMPLE_TEXT = `Here is a messy paste...\u200B
-
-"Quarterly plan" &amp; weird&nbsp;spacing.
-
-Wrapped link:
-https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fdocs%2FQuarterly%2520Plan%3Futm_source%3Dnewsletter%26utm_medium%3Demail%26keep%3D1&sa=D&source=docs
-
-Store link:
-https://shop.example.com/New%20Drop?utm_campaign=spring-launch&utm_content=hero-banner&color=blue
-
-Last line \u2014 with extra spaces.   `
+const MODE_OPTIONS = getModes()
+const DEFAULT_MODE = 'plain'
 
 function App() {
-  const [input, setInput] = useState(SAMPLE_TEXT)
+  const [mode, setMode] = useState(DEFAULT_MODE)
+  const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
   const [copyState, setCopyState] = useState('idle')
   const deferredInput = useDeferredValue(input)
+  const deferredMode = useDeferredValue(mode)
 
-  const result = useMemo(() => cleanText(deferredInput), [deferredInput])
+  const result = useMemo(() => cleanText(deferredInput, deferredMode), [deferredInput, deferredMode])
 
   useEffect(() => {
     if (copyState !== 'copied') {
@@ -31,6 +25,22 @@ function App() {
 
     return () => window.clearTimeout(timeoutId)
   }, [copyState])
+
+  function handleModeChange(nextMode) {
+    startTransition(() => {
+      setMode(nextMode)
+      setCopyState('idle')
+    })
+  }
+
+  function handleLoadSample() {
+    const sample = getModeDefinition(mode).sample
+
+    startTransition(() => {
+      setInput(sample)
+      setCopyState('idle')
+    })
+  }
 
   async function handleCopy() {
     if (!result.cleanedText) {
@@ -48,13 +58,39 @@ function App() {
   return (
     <main className="shell">
       <section className="hero">
-        <p className="eyebrow">Phase 2 - URL and Link Tools</p>
-        <h1>Clean paste junk and rescue links in one pass.</h1>
+        <p className="eyebrow">Phase 3 - Format Modes</p>
+        <h1>Choose the cleanup mode that matches what you pasted.</h1>
         <p className="lede">
-          PasteClean now keeps the Phase 1 text fixes and adds URL cleanup:
-          tracking parameters are stripped, redirect wrappers are unwrapped, and
-          percent-encoded links become readable before you copy them back out.
+          PasteClean now supports plain text, Markdown, code, and email flows.
+          Each mode keeps the right structure while still applying the earlier
+          character cleanup and URL tools underneath.
         </p>
+      </section>
+
+      <section className="modeSection">
+        <div className="modeHeader">
+          <div>
+            <p className="panelLabel">Format modes</p>
+            <h2>How should this paste be treated?</h2>
+          </div>
+          <button type="button" className="secondaryButton" onClick={handleLoadSample}>
+            Load {getModeDefinition(mode).label} sample
+          </button>
+        </div>
+
+        <div className="modeGrid">
+          {MODE_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={`modeButton ${option.id === mode ? 'modeButtonActive' : ''}`}
+              onClick={() => handleModeChange(option.id)}
+            >
+              <span className="modeButtonTitle">{option.label}</span>
+              <span className="modeButtonDescription">{option.description}</span>
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="workspace">
@@ -70,8 +106,11 @@ function App() {
           <textarea
             className="editor"
             value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Paste text, URLs, newsletter links, or redirect wrappers..."
+            onChange={(event) => {
+              setInput(event.target.value)
+              setCopyState('idle')
+            }}
+            placeholder="Paste plain text, Markdown, code, or an email thread..."
             spellCheck={false}
           />
         </article>
@@ -80,7 +119,7 @@ function App() {
           <div className="panelHeader">
             <div>
               <p className="panelLabel">Cleaned result</p>
-              <h2>Output</h2>
+              <h2>{result.modeLabel} output</h2>
             </div>
 
             <button
@@ -108,15 +147,13 @@ function App() {
 
       <section className="insights">
         <article className="infoCard">
-          <p className="panelLabel">Rules applied</p>
+          <p className="panelLabel">Active mode</p>
+          <h2>{result.modeLabel}</h2>
+          <p className="cardText">{result.modeDescription}</p>
           <ul className="ruleList">
-            <li>Invisible Unicode stripped</li>
-            <li>HTML entities decoded</li>
-            <li>Smart punctuation normalized</li>
-            <li>Blank lines collapsed</li>
-            <li>UTM and click IDs removed from URLs</li>
-            <li>Redirect wrapper links unwrapped</li>
-            <li>Percent-encoded URLs made readable</li>
+            {result.modeRules.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
           </ul>
         </article>
 
@@ -128,22 +165,44 @@ function App() {
               <dd>{result.removedCharacters}</dd>
             </div>
             <div>
+              <dt>Line count</dt>
+              <dd>
+                {result.lineCountBefore} {'->'} {result.lineCountAfter}
+              </dd>
+            </div>
+            <div>
               <dt>URLs changed</dt>
               <dd>{result.urlSummary.urlsChanged}</dd>
             </div>
-            <div>
-              <dt>Tracking params removed</dt>
-              <dd>{result.urlSummary.trackingParamsRemoved}</dd>
-            </div>
-            <div>
-              <dt>Redirects unwrapped</dt>
-              <dd>{result.urlSummary.redirectsUnwrapped}</dd>
-            </div>
-            <div>
-              <dt>Readable URL decodes</dt>
-              <dd>{result.urlSummary.urlsDecoded}</dd>
-            </div>
+            {result.modeSummary.stats.map((stat) => (
+              <div key={stat.label}>
+                <dt>{stat.label}</dt>
+                <dd>{stat.value}</dd>
+              </div>
+            ))}
           </dl>
+        </article>
+      </section>
+
+      <section className="insights insightsSecondary">
+        <article className="infoCard">
+          <p className="panelLabel">Mode effect</p>
+          <h2>{result.modeSummary.title}</h2>
+          <ul className="highlightList">
+            {result.modeSummary.highlights.map((highlight) => (
+              <li key={highlight}>{highlight}</li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="infoCard">
+          <p className="panelLabel">URL tools</p>
+          <h2>Still active in every mode</h2>
+          <ul className="ruleList">
+            <li>UTM and click IDs are removed.</li>
+            <li>Redirect wrapper links are unwrapped.</li>
+            <li>Percent-encoded URLs are made readable.</li>
+          </ul>
         </article>
       </section>
 
@@ -162,8 +221,8 @@ function App() {
 
         {result.urlChanges.length === 0 ? (
           <article className="diffEmpty">
-            No wrapped or tracked URLs detected yet. Paste a newsletter, search
-            result, or redirect link to see the cleanup diff here.
+            This paste did not trigger the URL tools. The selected format mode
+            still cleaned the content and preserved the right structure.
           </article>
         ) : (
           <div className="diffGrid">
