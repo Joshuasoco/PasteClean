@@ -1,5 +1,6 @@
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
+const INLINE_WHITESPACE_RUN = /([^\s\n])[ \t]{2,}(?=[^\s\n])/g
 
 export function markdownMode(text, options = {}) {
   let normalizedHeadings = 0
@@ -24,7 +25,10 @@ export function markdownMode(text, options = {}) {
     .join('\n')
 
   if (options.cleanWhitespace !== false) {
-    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+    cleaned = cleaned
+      .replace(INLINE_WHITESPACE_RUN, '$1 ')
+      .replace(EXCESS_BLANK_LINES, '\n\n')
+      .replace(/^\n+|\n+$/g, '')
   }
 
   return {

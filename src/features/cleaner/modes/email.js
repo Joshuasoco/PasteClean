@@ -1,5 +1,6 @@
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
+const INLINE_WHITESPACE_RUN = /([^\s\n])[ \t]{2,}(?=[^\s\n])/g
 const REPLY_BOUNDARY_PATTERN =
   /^(On .+wrote:|From:\s.+|Sent:\s.+|To:\s.+|Subject:\s.+|-{2,}\s*Original Message\s*-{2,})$/i
 
@@ -26,7 +27,10 @@ export function emailMode(text, options = {}) {
   let cleaned = keptLines.join('\n')
 
   if (options.cleanWhitespace !== false) {
-    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+    cleaned = cleaned
+      .replace(INLINE_WHITESPACE_RUN, '$1 ')
+      .replace(EXCESS_BLANK_LINES, '\n\n')
+      .replace(/^\n+|\n+$/g, '')
   }
 
   return {

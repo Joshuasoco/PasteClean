@@ -1,5 +1,6 @@
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n[ \t]*\n(?:[ \t]*\n)+/g
+const INLINE_WHITESPACE_RUN = /([^\s\n])[ \t]{2,}(?=[^\s\n])/g
 
 function stripMarkdownLinks(value) {
   return value.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1 ($2)')
@@ -40,7 +41,10 @@ export function plainMode(text, options = {}) {
     .join('\n')
 
   if (options.cleanWhitespace !== false) {
-    cleaned = cleaned.replace(EXCESS_BLANK_LINES, '\n\n').replace(/^\n+|\n+$/g, '')
+    cleaned = cleaned
+      .replace(INLINE_WHITESPACE_RUN, '$1 ')
+      .replace(EXCESS_BLANK_LINES, '\n\n')
+      .replace(/^\n+|\n+$/g, '')
   }
 
   return {

@@ -18,6 +18,11 @@ export const CLEANING_RULES = [
     description: 'Remove em dashes (—) commonly found in AI-generated writing.',
   },
   {
+    key: 'cleanWhitespace',
+    label: 'Whitespace cleanup',
+    description: 'Trim trailing spaces and collapse duplicate blank lines where the mode allows it.',
+  },
+  {
     key: 'stripInvisibleChars',
     label: 'Invisible Unicode',
     description: 'Remove zero-width spaces, soft hyphens, and BOM characters.',
@@ -31,11 +36,6 @@ export const CLEANING_RULES = [
     key: 'normalizePunctuation',
     label: 'Smart punctuation',
     description: 'Convert curly quotes and long dashes into plain ASCII punctuation.',
-  },
-  {
-    key: 'cleanWhitespace',
-    label: 'Whitespace cleanup',
-    description: 'Trim trailing spaces and collapse duplicate blank lines where the mode allows it.',
   },
   {
     key: 'stripTrackingParams',
