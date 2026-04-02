@@ -1,6 +1,6 @@
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
-const INLINE_WHITESPACE_RUN = /([^\s\n])[ \t]{2,}(?=[^\s\n])/g
+const INLINE_WHITESPACE_RUN = /([^\s\n])[^\S\n]{2,}(?=[^\s\n])/g
 const REPLY_BOUNDARY_PATTERN =
   /^(On .+wrote:|From:\s.+|Sent:\s.+|To:\s.+|Subject:\s.+|-{2,}\s*Original Message\s*-{2,})$/i
 
