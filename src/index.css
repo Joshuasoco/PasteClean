@@ -531,6 +531,10 @@ button {
 }
 
 .pcCleanButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
   border-radius: 10px;
   border: 3px solid var(--line);
   background: var(--accent);
@@ -642,6 +646,107 @@ button {
   letter-spacing: 0.01em;
 }
 
+.pcFooterLink {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: inherit;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  box-shadow: 2px 2px 0 var(--line);
+}
+
+.pcFooterLink:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcLegalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.pcLegalModal {
+  width: min(760px, 100%);
+  max-height: min(84vh, 900px);
+  overflow: auto;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  padding: 1rem 1rem 1.1rem;
+}
+
+.pcLegalTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.pcLegalTop h2 {
+  margin: 0;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.pcLegalClose {
+  border: 2px solid var(--line);
+  background: var(--accent);
+  border-radius: 10px;
+  font-weight: 700;
+  padding: 0.35rem 0.7rem;
+  box-shadow: 2px 2px 0 var(--line);
+}
+
+.pcLegalUpdated {
+  margin: 0.45rem 0 0.75rem;
+  font-size: 0.82rem;
+  color: #2d2d2d;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pcLegalBody {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.pcLegalSection {
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--card-soft);
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.75rem 0.82rem;
+}
+
+.pcLegalSection h3 {
+  margin: 0 0 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.9rem;
+}
+
+.pcLegalSection p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #1f1f1f;
+}
+
+.pcLegalSection p + p {
+  margin-top: 0.45rem;
+}
+
 @media (max-width: 1080px) {
   .pcMainGrid {
     grid-template-columns: 1fr;
@@ -690,6 +795,10 @@ button {
 
   .pcCleanButton {
     width: 100%;
+  }
+
+  .pcLegalModal {
+    padding: 0.82rem;
   }
 
   .pcEditorCard {

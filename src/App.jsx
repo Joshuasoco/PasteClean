@@ -1,5 +1,5 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { History, Link2Off, Quote, Settings, Sparkles, UserCircle2 } from 'lucide-react'
+import { BrushCleaning, History, Link2Off, Quote, Settings, Sparkles, UserCircle2 } from 'lucide-react'
 import {
   CLEANING_RULES,
   cleanText,
@@ -10,6 +10,62 @@ import { usePasteHistory } from './hooks/usePasteHistory'
 
 const MODE_OPTIONS = getModes()
 const DEFAULT_MODE = 'plain'
+const LEGAL_CONTENT = {
+  privacy: {
+    title: 'Privacy Policy',
+    updatedAt: 'April 3, 2026',
+    sections: [
+      {
+        heading: 'What We Store',
+        body: [
+          'PasteClean runs locally in your browser. Your text, settings, and history stay in local storage on your device.',
+          'We do not send your pasted text to a remote server as part of the core cleaning flow.',
+        ],
+      },
+      {
+        heading: 'How Data Is Used',
+        body: [
+          'Saved history is only used to let you restore recent pastes in this browser profile.',
+          'Cleaning settings are stored to keep your experience consistent between sessions.',
+        ],
+      },
+      {
+        heading: 'Your Controls',
+        body: [
+          'You can clear local history anytime from Profile > Clear local history.',
+          'You can reset cleaning rules at any time from Settings.',
+        ],
+      },
+    ],
+  },
+  terms: {
+    title: 'Terms of Use',
+    updatedAt: 'April 3, 2026',
+    sections: [
+      {
+        heading: 'Use of the App',
+        body: [
+          'You may use PasteClean for personal or business text cleanup workflows.',
+          'You are responsible for the content you paste and any output you publish or share.',
+        ],
+      },
+      {
+        heading: 'No Warranty',
+        body: [
+          'The app is provided as-is without warranties of accuracy, fitness, or uninterrupted availability.',
+          'Always review cleaned output before relying on it in legal, medical, financial, or production-critical contexts.',
+        ],
+      },
+      {
+        heading: 'Limitation of Liability',
+        body: [
+          'To the extent permitted by law, the maintainers are not liable for indirect or consequential damages resulting from use of the app.',
+          'If you do not agree with these terms, discontinue use of the app.',
+        ],
+      },
+    ],
+  },
+}
 
 function countWords(value) {
   return value.trim() ? value.trim().split(/\s+/).length : 0
@@ -32,6 +88,7 @@ function App() {
   const [lastAction, setLastAction] = useState('Live preview is active.')
   const [isPasting, setIsPasting] = useState(false)
   const [activeMenu, setActiveMenu] = useState(null)
+  const [activeLegalDoc, setActiveLegalDoc] = useState(null)
   const [recoverState, setRecoverState] = useState(null)
   const [displayedOutput, setDisplayedOutput] = useState('')
   const menuWrapRef = useRef(null)
@@ -94,6 +151,11 @@ function App() {
 
     function handleEsc(event) {
       if (event.key === 'Escape') {
+        if (activeLegalDoc) {
+          setActiveLegalDoc(null)
+          return
+        }
+
         setActiveMenu(null)
       }
     }
@@ -105,7 +167,16 @@ function App() {
       window.removeEventListener('mousedown', handleClickAway)
       window.removeEventListener('keydown', handleEsc)
     }
-  }, [])
+  }, [activeLegalDoc])
+
+  function openLegalDoc(docType) {
+    setActiveMenu(null)
+    setActiveLegalDoc(docType)
+  }
+
+  function closeLegalDoc() {
+    setActiveLegalDoc(null)
+  }
 
   async function pasteFromClipboard() {
     try {
@@ -250,6 +321,7 @@ function App() {
   const inputWords = countWords(input)
   const outputWords = countWords(displayedOutput)
   const historyPreview = history.slice(0, 5)
+  const legalDoc = activeLegalDoc ? LEGAL_CONTENT[activeLegalDoc] : null
   const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
   const smartCleanEnabled = enabledRuleCount === CLEANING_RULES.length
   const fixQuotesEnabled = Boolean(cleaningOptions.normalizePunctuation)
@@ -506,7 +578,8 @@ function App() {
               <p>Paste your messy text below for a tactile cleanup.</p>
             </div>
             <button type="button" className="pcCleanButton" onClick={handleClean}>
-              Clean
+              <BrushCleaning size={16} strokeWidth={2.3} aria-hidden="true" />
+              <span>Clean</span>
             </button>
           </div>
 
@@ -549,13 +622,50 @@ function App() {
       </section>
 
       <footer className="pcFooter">
-        <span>(c) 2024 PasteClean</span>
+        <span>(c) 2026 PasteClean</span>
         <span className="pcFooterAction">Last action: {lastAction}</span>
         <span>{toast || (isPasting ? 'Pasting...' : 'Local storage: active')}</span>
         <span>PWA status: ready</span>
-        <span>Privacy</span>
-        <span>Terms</span>
+        <button type="button" className="pcFooterLink" onClick={() => openLegalDoc('privacy')}>
+          Privacy
+        </button>
+        <button type="button" className="pcFooterLink" onClick={() => openLegalDoc('terms')}>
+          Terms
+        </button>
       </footer>
+
+      {legalDoc ? (
+        <div
+          className="pcLegalBackdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeLegalDoc()
+            }
+          }}
+        >
+          <section className="pcLegalModal" role="dialog" aria-modal="true" aria-labelledby="pcLegalTitle">
+            <div className="pcLegalTop">
+              <h2 id="pcLegalTitle">{legalDoc.title}</h2>
+              <button type="button" className="pcLegalClose" onClick={closeLegalDoc}>
+                Close
+              </button>
+            </div>
+            <p className="pcLegalUpdated">Last updated: {legalDoc.updatedAt}</p>
+
+            <div className="pcLegalBody">
+              {legalDoc.sections.map((section) => (
+                <article key={section.heading} className="pcLegalSection">
+                  <h3>{section.heading}</h3>
+                  {section.body.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   )
 }
