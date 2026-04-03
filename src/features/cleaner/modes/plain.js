@@ -1,3 +1,5 @@
+import { passthroughStage } from './strategy'
+
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n[ \t]*\n(?:[ \t]*\n)+/g
 const INLINE_WHITESPACE_RUN = /([^\s\n])[^\S\n]{2,}(?=[^\s\n])/g
@@ -15,7 +17,7 @@ function stripInlineMarkdown(value) {
     .replace(/~~(.*?)~~/g, '$1')
 }
 
-export function plainMode(text, options = {}) {
+function transform(text, options = {}) {
   const strippedText = stripInlineMarkdown(stripMarkdownLinks(text))
   let structuralTokensRemoved = 0
 
@@ -61,4 +63,27 @@ export function plainMode(text, options = {}) {
       ],
     },
   }
+}
+
+export const plainMode = {
+  id: 'plain',
+  label: 'Plain text',
+  description: 'Strips formatting markers and leaves readable text only.',
+  rules: [
+    'Formatting markers are removed.',
+    'Paragraph spacing is kept readable.',
+    'Smart punctuation, entities, and URL cleanup stay enabled by default.',
+  ],
+  sample: `# Weekly Update
+
+- "Quarterly plan" &amp; weird&nbsp;spacing.
+- Visit [campaign page](https://shop.example.com/New%20Drop?utm_campaign=spring-launch&utm_content=hero-banner&color=blue)
+> Pulled from notes with extra formatting.
+`,
+  shouldCleanUrls: true,
+  shouldNormalizePunctuation: true,
+  shouldDecodeHtmlEntities: true,
+  preprocess: passthroughStage,
+  transform,
+  postprocess: passthroughStage,
 }

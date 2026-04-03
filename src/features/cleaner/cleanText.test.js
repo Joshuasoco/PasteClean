@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanText, getDefaultCleaningOptions } from './cleanText'
+import { cleanText, getDefaultCleaningOptions, syncCleaningOptionsForModeChange } from './cleanText'
 
 describe('cleanText', () => {
   it('normalizes punctuation, decodes entities, and strips invisible chars', () => {
@@ -30,11 +30,38 @@ describe('cleanText', () => {
 
   it('runs code-mode cleanup and url cleanup together', () => {
     const input = '1 | const docs = "https://example.com/New%20Drop?utm_source=mail&keep=1";'
-    const result = cleanText(input, 'code', getDefaultCleaningOptions())
+    const result = cleanText(input, 'code', getDefaultCleaningOptions('code'))
 
-    expect(result.cleanedText).toContain('const docs = "https://example.com/New Drop?keep=1";')
+    expect(result.cleanedText).toContain('const docs = "https://example.com/New%20Drop?utm_source=mail&keep=1";')
     expect(result.cleanedText).not.toContain('1 |')
-    expect(result.urlSummary.trackingParamsRemoved).toBe(1)
+    expect(result.urlSummary.trackingParamsRemoved).toBe(0)
+  })
+
+  it('lets mode defaults follow the selected mode without overwriting user overrides', () => {
+    const nextDefaults = syncCleaningOptionsForModeChange(getDefaultCleaningOptions('plain'), 'plain', 'code')
+
+    expect(nextDefaults.normalizePunctuation).toBe(false)
+    expect(nextDefaults.decodeHtmlEntities).toBe(false)
+    expect(nextDefaults.stripTrackingParams).toBe(false)
+
+    const preservedOverride = syncCleaningOptionsForModeChange(
+      {
+        ...getDefaultCleaningOptions('plain'),
+        normalizePunctuation: false,
+      },
+      'plain',
+      'email'
+    )
+
+    expect(preservedOverride.normalizePunctuation).toBe(false)
+    expect(preservedOverride.decodeHtmlEntities).toBe(true)
+  })
+
+  it('keeps code-safe defaults from rewriting string literal content', () => {
+    const input = 'const label = "â€œHelloâ€ &amp; docs https://example.com/A%20B?utm_source=test&keep=1";'
+    const result = cleanText(input, 'code', getDefaultCleaningOptions('code'))
+
+    expect(result.cleanedText).toBe(input)
   })
 
   it('removes email reply chains in email mode', () => {
@@ -47,7 +74,7 @@ describe('cleanText', () => {
       '> Previous thread',
     ].join('\n')
 
-    const result = cleanText(input, 'email', getDefaultCleaningOptions())
+    const result = cleanText(input, 'email', getDefaultCleaningOptions('email'))
 
     expect(result.cleanedText).toContain('Latest update is attached.')
     expect(result.cleanedText).not.toContain('Morgan wrote')

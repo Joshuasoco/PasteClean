@@ -1,8 +1,10 @@
+import { passthroughStage } from './strategy'
+
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
 const INLINE_WHITESPACE_RUN = /([^\s\n])[^\S\n]{2,}(?=[^\s\n])/g
 
-export function markdownMode(text, options = {}) {
+function transform(text, options = {}) {
   let normalizedHeadings = 0
   let normalizedBullets = 0
 
@@ -45,4 +47,29 @@ export function markdownMode(text, options = {}) {
       ],
     },
   }
+}
+
+export const markdownMode = {
+  id: 'markdown',
+  label: 'Markdown',
+  description: 'Preserves headings, lists, and spacing while cleaning paste damage.',
+  rules: [
+    'Headings and lists stay in Markdown form.',
+    'Spacing is normalized without flattening the document.',
+    'URL cleanup stays on, but smart punctuation is conservative by default.',
+  ],
+  sample: `##Launch Notes
+
+* Review the docs link:
+  https://www.google.com/url?q=https%3A%2F%2Fexample.com%2Fdocs%2FQuarterly%2520Plan%3Futm_source%3Dnewsletter%26keep%3D1&sa=D
+
++ Confirm rollout checklist
++ Share update with the team
+`,
+  shouldCleanUrls: true,
+  shouldNormalizePunctuation: false,
+  shouldDecodeHtmlEntities: true,
+  preprocess: passthroughStage,
+  transform,
+  postprocess: passthroughStage,
 }

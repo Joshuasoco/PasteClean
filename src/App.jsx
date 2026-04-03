@@ -14,6 +14,7 @@ import {
   CLEANING_RULES,
   cleanText,
   getDefaultCleaningOptions,
+  syncCleaningOptionsForModeChange,
 } from './features/cleaner/cleanText'
 import { getModeDefinition, getModes } from './features/cleaner/modes'
 import { usePasteHistory } from './hooks/usePasteHistory'
@@ -101,7 +102,7 @@ function createRuleId() {
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
-  const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions())
+  const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions(DEFAULT_MODE))
   const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('')
@@ -299,6 +300,7 @@ function App() {
 
   function handleModeChange(nextMode) {
     startTransition(() => {
+      setCleaningOptions((current) => syncCleaningOptionsForModeChange(current, mode, nextMode))
       setMode(nextMode)
     })
   }
@@ -348,7 +350,7 @@ function App() {
 
   function handleResetSettings() {
     setRecoverState({ input, mode, cleaningOptions, customRules, history })
-    setCleaningOptions(getDefaultCleaningOptions())
+    setCleaningOptions(getDefaultCleaningOptions(mode))
     setToast('Settings reset to default.')
     setLastAction('Settings reset to default.')
     setActiveMenu(null)
@@ -364,7 +366,7 @@ function App() {
   function handleClearLocalData() {
     setRecoverState({ input, mode, cleaningOptions, customRules, history })
     clearHistory()
-    setCleaningOptions(getDefaultCleaningOptions())
+    setCleaningOptions(getDefaultCleaningOptions(mode))
     setCustomRules([])
     setToast('Local history cleared.')
     setLastAction('Local history cleared.')
@@ -465,7 +467,7 @@ function App() {
 
     try {
       const rawText = await file.text()
-      const imported = parseSettingsBackup(rawText, getDefaultCleaningOptions())
+      const imported = parseSettingsBackup(rawText, getDefaultCleaningOptions(mode))
 
       setRecoverState({ input, mode, cleaningOptions, customRules, history })
       setCleaningOptions(imported.cleaningOptions)

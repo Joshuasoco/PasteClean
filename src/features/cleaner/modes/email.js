@@ -1,10 +1,12 @@
+import { passthroughStage } from './strategy'
+
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
 const INLINE_WHITESPACE_RUN = /([^\s\n])[^\S\n]{2,}(?=[^\s\n])/g
 const REPLY_BOUNDARY_PATTERN =
   /^(On .+wrote:|From:\s.+|Sent:\s.+|To:\s.+|Subject:\s.+|-{2,}\s*Original Message\s*-{2,})$/i
 
-export function emailMode(text, options = {}) {
+function transform(text, options = {}) {
   const lines = text.split('\n')
   const keptLines = []
   let quotedLinesRemoved = 0
@@ -47,4 +49,33 @@ export function emailMode(text, options = {}) {
       ],
     },
   }
+}
+
+export const emailMode = {
+  id: 'email',
+  label: 'Email',
+  description: 'Keeps the latest message and removes quoted reply chains.',
+  rules: [
+    'Quoted email replies are removed.',
+    'Reply-header blocks are cut away when detected.',
+    'Readable punctuation and cleaned links stay enabled for the newest message.',
+  ],
+  sample: `Hi team,
+
+Please review the updated brief:
+https://shop.example.com/New%20Drop?utm_campaign=spring-launch&color=blue
+
+Thanks,
+Alex
+
+On Tue, Apr 1, 2026 at 9:14 AM Morgan wrote:
+> Previous thread content
+> Older quoted reply
+`,
+  shouldCleanUrls: true,
+  shouldNormalizePunctuation: true,
+  shouldDecodeHtmlEntities: true,
+  preprocess: passthroughStage,
+  transform,
+  postprocess: passthroughStage,
 }

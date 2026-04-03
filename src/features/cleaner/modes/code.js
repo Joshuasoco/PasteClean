@@ -1,3 +1,5 @@
+import { passthroughStage } from './strategy'
+
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{4,}/g
 
@@ -19,7 +21,7 @@ function removeLineNumberPrefix(line) {
   return line
 }
 
-export function codeMode(text, options = {}) {
+function transform(text, options = {}) {
   let lineNumbersRemoved = 0
 
   let cleaned = text
@@ -55,4 +57,26 @@ export function codeMode(text, options = {}) {
       ],
     },
   }
+}
+
+export const codeMode = {
+  id: 'code',
+  label: 'Code',
+  description: 'Preserves indentation and removes copied line numbers.',
+  rules: [
+    'Common line-number prefixes are removed.',
+    'Indentation is preserved for usable code.',
+    'Punctuation, entities, and URL rewriting stay off by default.',
+  ],
+  sample: `1 | function greet(name) {
+2 |   const docs = "https://example.com/api%20guide?utm_source=docs";
+3 |   console.log("Hello, " + name);
+4 | }
+`,
+  shouldCleanUrls: false,
+  shouldNormalizePunctuation: false,
+  shouldDecodeHtmlEntities: false,
+  preprocess: passthroughStage,
+  transform,
+  postprocess: passthroughStage,
 }
