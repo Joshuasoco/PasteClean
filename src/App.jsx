@@ -1,5 +1,15 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { BrushCleaning, History, Link2Off, Quote, Settings, Sparkles, UserCircle2 } from 'lucide-react'
+import {
+  BrushCleaning,
+  ClipboardPaste,
+  History,
+  Link2Off,
+  Quote,
+  Settings,
+  Sparkles,
+  Trash2,
+  UserCircle2,
+} from 'lucide-react'
 import {
   CLEANING_RULES,
   cleanText,
@@ -526,6 +536,20 @@ function App() {
     setLastAction('Custom rule deleted.')
   }
 
+  function handleClearInput() {
+    if (!input.trim() && !displayedOutput.trim()) {
+      return
+    }
+
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    startTransition(() => {
+      setInput('')
+      setDisplayedOutput('')
+    })
+    setToast('Input cleared.')
+    setLastAction('Input cleared.')
+  }
+
   const inputWords = countWords(input)
   const outputWords = countWords(displayedOutput)
   const historyPreview = history.slice(0, 5)
@@ -1024,7 +1048,31 @@ function App() {
 
           <div className="pcEditors">
             <article className="pcEditorCard">
-              <p className="pcEditorLabel">Raw Input</p>
+              <div className="pcEditorCardTop">
+                <p className="pcEditorLabel">Raw Input</p>
+                <div className="pcEditorCardActions">
+                  <button
+                    type="button"
+                    className="pcEditorIconButton"
+                    aria-label="Paste from clipboard"
+                    title="Paste from clipboard"
+                    onClick={() => void pasteFromClipboard()}
+                    disabled={isPasting}
+                  >
+                    <ClipboardPaste size={16} strokeWidth={2.2} />
+                  </button>
+                  <button
+                    type="button"
+                    className="pcEditorIconButton"
+                    aria-label="Clear input"
+                    title="Clear input"
+                    onClick={handleClearInput}
+                    disabled={!hasInput && !hasDisplayedOutput}
+                  >
+                    <Trash2 size={16} strokeWidth={2.2} />
+                  </button>
+                </div>
+              </div>
               <textarea
                 className="pcEditor"
                 value={input}

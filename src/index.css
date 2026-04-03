@@ -772,6 +772,36 @@ button {
   margin-bottom: 0;
 }
 
+.pcEditorCardActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pcEditorIconButton {
+  width: 2.1rem;
+  height: 2.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: #171717;
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 90ms ease, box-shadow 90ms ease, background 90ms ease;
+}
+
+.pcEditorIconButton:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcEditorIconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .pcOutputState {
   display: grid;
   gap: 0.2rem;
