@@ -10,6 +10,7 @@ import { usePasteHistory } from './hooks/usePasteHistory'
 import { useStoredState } from './hooks/useStoredState'
 import { buildTextDiff } from './utils/buildTextDiff'
 import { exportHistory } from './utils/exportHistory'
+import { parseSettingsBackup, serializeSettingsBackup } from './utils/settingsBackup'
 import { STORAGE_KEYS } from './utils/storageKeys'
 
 const MODE_OPTIONS = getModes()
@@ -105,6 +106,7 @@ function App() {
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null)
   const [isPwaInstalled, setIsPwaInstalled] = useState(false)
   const menuWrapRef = useRef(null)
+  const settingsImportRef = useRef(null)
 
   const deferredInput = useDeferredValue(input)
   const deferredMode = useDeferredValue(mode)
@@ -402,6 +404,63 @@ function App() {
     setDeferredInstallPrompt(null)
   }
 
+  function handleExportSettingsBackup() {
+    const backupText = serializeSettingsBackup({ cleaningOptions, customRules })
+    const blob = new Blob([backupText], { type: 'application/json;charset=utf-8' })
+    const objectUrl = URL.createObjectURL(blob)
+    const timestamp = new Date().toISOString().slice(0, 19).replaceAll(':', '-')
+    const link = document.createElement('a')
+
+    link.href = objectUrl
+    link.download = `pasteclean-settings-${timestamp}.json`
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+
+    setToast('Settings backup exported.')
+    setLastAction('Settings backup exported.')
+    setActiveMenu(null)
+  }
+
+  function handleImportSettingsBackup() {
+    settingsImportRef.current?.click()
+  }
+
+  async function handleSettingsFileSelected(event) {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    try {
+      const rawText = await file.text()
+      const imported = parseSettingsBackup(rawText, getDefaultCleaningOptions())
+
+      setRecoverState({ input, mode, cleaningOptions, customRules, history })
+      setCleaningOptions(imported.cleaningOptions)
+      setCustomRules(
+        imported.customRules.map((rule) => ({
+          id: rule.id || createRuleId(),
+          find: rule.find,
+          replace: rule.replace,
+          enabled: rule.enabled,
+        }))
+      )
+
+      setToast('Settings backup imported.')
+      setLastAction('Settings backup imported.')
+      setActiveMenu(null)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Import failed.'
+      setToast(message)
+      setLastAction('Settings backup import failed.')
+    } finally {
+      event.target.value = ''
+    }
+  }
+
   function handleAddCustomRule() {
     const findValue = draftRuleFind.trim()
 
@@ -472,6 +531,14 @@ function App() {
 
   return (
     <main className="pcShell">
+      <input
+        ref={settingsImportRef}
+        type="file"
+        accept="application/json,.json"
+        className="pcHiddenInput"
+        onChange={(event) => void handleSettingsFileSelected(event)}
+      />
+
       <header className="pcTopbar">
         <div className="pcLogo">PasteClean</div>
 
@@ -668,6 +735,12 @@ function App() {
                 </button>
                 <button type="button" className="pcMenuAction" onClick={handleResetCustomRules}>
                   Reset custom rules
+                </button>
+                <button type="button" className="pcMenuAction" onClick={handleExportSettingsBackup}>
+                  Export settings backup (.json)
+                </button>
+                <button type="button" className="pcMenuAction" onClick={handleImportSettingsBackup}>
+                  Import settings backup (.json)
                 </button>
                 <button type="button" className="pcMenuAction" onClick={() => void pasteFromClipboard()}>
                   Paste from clipboard

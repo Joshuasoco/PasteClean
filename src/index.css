@@ -55,6 +55,10 @@ button {
   background: none;
 }
 
+.pcHiddenInput {
+  display: none;
+}
+
 .pcShell {
   width: min(1280px, calc(100% - 2.25rem));
   margin: 0 auto;
