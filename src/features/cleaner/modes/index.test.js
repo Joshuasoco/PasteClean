@@ -45,6 +45,9 @@ describe('cleaner modes', () => {
     expect(getModeDefinition('code').shouldNormalizePunctuation).toBe(false)
     expect(getModeDefinition('markdown').shouldNormalizePunctuation).toBe(false)
     expect(getModeDefinition('email').shouldNormalizePunctuation).toBe(true)
+    expect(getModeDefinition('markdown').defaultCleaningOptions).toEqual({
+      preserveMarkdownCode: true,
+    })
     expect(getModeDefinition('code').defaultCleaningOptions).toEqual({
       preserveCodeTokens: true,
       stripInvisibleChars: false,

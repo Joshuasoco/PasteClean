@@ -124,4 +124,46 @@ describe('cleanText', () => {
     expect(result.cleanedText).not.toContain('Morgan wrote')
     expect(result.mode).toBe('email')
   })
+
+  it('cleans markdown prose while preserving fenced code blocks and inline code spans', () => {
+    const input = [
+      '##Heading',
+      '',
+      'Visit “docs” at https://example.com/A%20B?utm_source=test&keep=1 and use `https://example.com/C%20D?utm_source=code&keep=1`.',
+      '',
+      '```js',
+      'const docs = "https://example.com/A%20B?utm_source=test&keep=1";  ',
+      'const title = "&amp;";',
+      '```',
+    ].join('\n')
+
+    const result = cleanText(input, 'markdown', getDefaultCleaningOptions('markdown'))
+
+    expect(result.cleanedText).toContain('## Heading')
+    expect(result.cleanedText).toContain('https://example.com/A B?keep=1')
+    expect(result.cleanedText).toContain('`https://example.com/C%20D?utm_source=code&keep=1`')
+    expect(result.cleanedText).toContain('const docs = "https://example.com/A%20B?utm_source=test&keep=1";  ')
+    expect(result.cleanedText).toContain('const title = "&amp;";')
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Protected code regions', value: 2 })
+  })
+
+  it('allows markdown code regions to be cleaned when protection is explicitly disabled', () => {
+    const result = cleanText(
+      [
+        'Use `https://example.com/C%20D?utm_source=code&keep=1`',
+        '',
+        '```js',
+        'const title = "&amp;";',
+        '```',
+      ].join('\n'),
+      'markdown',
+      {
+        ...getDefaultCleaningOptions('markdown'),
+        preserveMarkdownCode: false,
+      }
+    )
+
+    expect(result.cleanedText).toContain('`https://example.com/C D?keep=1`')
+    expect(result.cleanedText).toContain('const title = "&";')
+  })
 })
