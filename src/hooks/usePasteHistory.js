@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStoredState } from './useStoredState'
 import { STORAGE_KEYS } from '../utils/storageKeys'
 
@@ -20,6 +20,7 @@ function createHistoryEntry({ input, result, mode, customRuleSummary }) {
 
 export function usePasteHistory({ input, result, mode, customRuleSummary }) {
   const [history, setHistory] = useStoredState(STORAGE_KEYS.history, [])
+  const [isSavingHistory, setIsSavingHistory] = useState(false)
   const hasInitialized = useRef(false)
 
   useEffect(() => {
@@ -29,8 +30,11 @@ export function usePasteHistory({ input, result, mode, customRuleSummary }) {
     }
 
     if (!input.trim()) {
+      setIsSavingHistory(false)
       return undefined
     }
+
+    setIsSavingHistory(true)
 
     const timeoutId = window.setTimeout(() => {
       setHistory((currentHistory) => {
@@ -53,6 +57,7 @@ export function usePasteHistory({ input, result, mode, customRuleSummary }) {
 
         return [nextEntry, ...dedupedHistory].slice(0, HISTORY_LIMIT)
       })
+      setIsSavingHistory(false)
     }, SAVE_DELAY_MS)
 
     return () => window.clearTimeout(timeoutId)
@@ -67,5 +72,6 @@ export function usePasteHistory({ input, result, mode, customRuleSummary }) {
     setHistory,
     clearHistory,
     historyLimit: HISTORY_LIMIT,
+    isSavingHistory,
   }
 }

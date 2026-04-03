@@ -94,9 +94,11 @@ function App() {
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions())
   const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
-  const [toast, setToast] = useState('Live preview is active.')
+  const [toast, setToast] = useState('')
   const [lastAction, setLastAction] = useState('Live preview is active.')
+  const [isCleaning, setIsCleaning] = useState(false)
   const [isPasting, setIsPasting] = useState(false)
+  const [exportingHistoryFormat, setExportingHistoryFormat] = useState(null)
   const [activeMenu, setActiveMenu] = useState(null)
   const [activeLegalDoc, setActiveLegalDoc] = useState(null)
   const [recoverState, setRecoverState] = useState(null)
@@ -124,7 +126,7 @@ function App() {
     setDisplayedOutput(result.cleanedText)
   }, [livePreviewEnabled, result.cleanedText])
 
-  const { history, setHistory, clearHistory, historyLimit } = usePasteHistory({
+  const { history, setHistory, clearHistory, historyLimit, isSavingHistory } = usePasteHistory({
     input,
     result,
     mode,
@@ -247,9 +249,15 @@ function App() {
 
   async function handleClean() {
     if (!result.cleanedText) {
+      const message = input.trim()
+        ? 'No cleaned output yet. Adjust the text or rules and try again.'
+        : 'Paste or type text before cleaning.'
+      setToast(message)
+      setLastAction(message)
       return
     }
 
+    setIsCleaning(true)
     setDisplayedOutput(result.cleanedText)
 
     try {
@@ -262,6 +270,8 @@ function App() {
     } catch {
       setToast('Unable to copy output.')
       setLastAction('Unable to copy output.')
+    } finally {
+      setIsCleaning(false)
     }
   }
 
@@ -289,8 +299,8 @@ function App() {
 
       if (next) {
         setDisplayedOutput(result.cleanedText)
-        setToast('Live preview resumed.')
-        setLastAction('Live preview resumed.')
+        setToast('Live preview is active. Changes flow into the output automatically while you type.')
+        setLastAction('Live preview activated.')
       } else {
         setToast('Live preview paused. Press Clean to refresh output.')
         setLastAction('Live preview paused.')
@@ -352,11 +362,19 @@ function App() {
   }
 
   function handleExportHistory(format) {
+    if (isSavingHistory) {
+      setToast('History is still saving locally. Try export again in a moment.')
+      setLastAction('History export is waiting for local save.')
+      return
+    }
+
+    setExportingHistoryFormat(format)
     const exported = exportHistory(history, format)
 
     if (!exported) {
       setToast('Nothing to export yet.')
       setLastAction('Export skipped: history is empty.')
+      window.setTimeout(() => setExportingHistoryFormat(null), 0)
       return
     }
 
@@ -364,6 +382,7 @@ function App() {
     setToast(`History exported as ${label}.`)
     setLastAction(`History exported as ${label}.`)
     setActiveMenu(null)
+    window.setTimeout(() => setExportingHistoryFormat(null), 700)
   }
 
   function handleUndoLastChange() {
@@ -528,6 +547,77 @@ function App() {
     Boolean(cleaningOptions.stripTrackingParams) &&
     Boolean(cleaningOptions.unwrapRedirects) &&
     Boolean(cleaningOptions.decodeReadableUrls)
+  const hasInput = Boolean(input.trim())
+  const hasHistory = history.length > 0
+  const hasDisplayedOutput = Boolean(displayedOutput.trim())
+  const outputNeedsRefresh = hasInput && !livePreviewEnabled && displayedOutput !== result.cleanedText
+  const historyExportDisabled = !hasHistory || isSavingHistory || Boolean(exportingHistoryFormat)
+  const cleanButtonLabel = isPasting ? 'Pasting...' : isCleaning ? 'Refreshing...' : outputNeedsRefresh ? 'Refresh output' : 'Clean'
+
+  let workspaceStatus = ''
+
+  if (isPasting) {
+    workspaceStatus = 'Reading your clipboard and updating the workspace.'
+  } else if (isCleaning) {
+    workspaceStatus = 'Refreshing output and copying the latest result to your clipboard.'
+  } else if (outputNeedsRefresh) {
+    workspaceStatus = 'Live preview is paused. Press Refresh output to sync the latest result.'
+  } else if (!hasHistory) {
+    workspaceStatus = 'Your next edit or paste will appear in History after a short local save.'
+  }
+
+  let historyHint = 'Restore or export recent pastes stored only in this browser.'
+  let historyEmptyTitle = 'History is empty'
+  let historyEmptyBody = 'Paste something into the workspace and your recent versions will appear here.'
+
+  if (isSavingHistory) {
+    historyHint = 'Saving your latest paste locally now.'
+    historyEmptyTitle = 'Saving your first history item...'
+    historyEmptyBody = 'Keep typing for a moment and it will appear here automatically.'
+  } else if (!hasHistory && hasInput) {
+    historyHint = 'Your next edit or paste will be saved locally after a short pause.'
+    historyEmptyTitle = 'First paste almost ready'
+    historyEmptyBody = 'Make one more change or paste fresh text and it will show up in your recent history.'
+  }
+
+  let outputStatusTone = 'idle'
+  let outputStatusTitle = livePreviewEnabled ? 'Live preview is active.' : 'Manual output is ready.'
+  let outputStatusBody = livePreviewEnabled
+    ? 'Changes flow into the output automatically while you type.'
+    : 'Press Clean whenever you want to refresh and copy the latest result.'
+
+  if (isPasting) {
+    outputStatusTone = 'pending'
+    outputStatusTitle = 'Reading from clipboard...'
+    outputStatusBody = 'Your new text will populate the workspace before output updates.'
+  } else if (isCleaning) {
+    outputStatusTone = 'pending'
+    outputStatusTitle = 'Refreshing output...'
+    outputStatusBody = 'We are updating the preview and copying the latest result.'
+  } else if (!hasInput) {
+    outputStatusTone = 'empty'
+    outputStatusTitle = 'Output will appear here'
+    outputStatusBody = 'Paste or type text on the left to generate a cleaned result.'
+  } else if (outputNeedsRefresh) {
+    outputStatusTone = 'warn'
+    outputStatusTitle = 'Preview paused'
+    outputStatusBody = 'Your latest edits are ready. Press Refresh output to sync this panel.'
+  }
+
+  let outputEmptyTitle = 'Nothing to show yet'
+  let outputEmptyBody = 'Paste or type text to generate cleaned output.'
+
+  if (isPasting) {
+    outputEmptyTitle = 'Reading clipboard...'
+    outputEmptyBody = 'The output panel will populate as soon as your pasted text lands.'
+  } else if (outputNeedsRefresh) {
+    outputEmptyTitle = 'Output is waiting for refresh'
+    outputEmptyBody = 'Live preview is paused, so press Refresh output to generate the latest result here.'
+  }
+
+  const outputBadgeLabel = isPasting ? 'Loading' : isCleaning ? 'Working' : outputNeedsRefresh ? 'Paused' : hasDisplayedOutput ? (livePreviewEnabled ? 'Live' : 'Ready') : 'Empty'
+  const outputBadgeTone = isPasting || isCleaning ? 'pending' : outputNeedsRefresh ? 'warn' : hasDisplayedOutput ? 'ready' : 'quiet'
+  const showOutputStatus = outputStatusTone === 'pending' || outputStatusTone === 'warn'
 
   return (
     <main className="pcShell">
@@ -586,9 +676,18 @@ function App() {
 
           {activeMenu === 'history' ? (
             <div className="pcMenu" role="menu" aria-label="History menu">
-              <p className="pcMenuTitle">Recent Pastes ({history.length}/{historyLimit})</p>
+              <div className="pcMenuStatusRow">
+                <p className="pcMenuTitle">Recent Pastes ({history.length}/{historyLimit})</p>
+                <span className={`pcStatusPill pcStatusPill${isSavingHistory ? 'Pending' : hasHistory ? 'Ready' : 'Quiet'}`}>
+                  {isSavingHistory ? 'Saving...' : hasHistory ? 'Local' : 'Empty'}
+                </span>
+              </div>
+              <p className="pcMenuHint">{historyHint}</p>
               {historyPreview.length === 0 ? (
-                <p className="pcMenuEmpty">No saved pastes yet.</p>
+                <div className={`pcEmptyState ${isSavingHistory ? 'pcEmptyStatePending' : ''}`}>
+                  <strong>{historyEmptyTitle}</strong>
+                  <span>{historyEmptyBody}</span>
+                </div>
               ) : (
                 <div className="pcMenuList">
                   {historyPreview.map((entry) => (
@@ -605,11 +704,29 @@ function App() {
                 </div>
               )}
 
-              <button type="button" className="pcMenuAction" onClick={() => handleExportHistory('txt')}>
-                Export history (.txt)
+              <button
+                type="button"
+                className="pcMenuAction"
+                onClick={() => handleExportHistory('txt')}
+                disabled={historyExportDisabled}
+              >
+                {exportingHistoryFormat === 'txt'
+                  ? 'Exporting history (.txt)...'
+                  : isSavingHistory
+                    ? 'Saving history (.txt)...'
+                    : 'Export history (.txt)'}
               </button>
-              <button type="button" className="pcMenuAction" onClick={() => handleExportHistory('csv')}>
-                Export history (.csv)
+              <button
+                type="button"
+                className="pcMenuAction"
+                onClick={() => handleExportHistory('csv')}
+                disabled={historyExportDisabled}
+              >
+                {exportingHistoryFormat === 'csv'
+                  ? 'Exporting history (.csv)...'
+                  : isSavingHistory
+                    ? 'Saving history (.csv)...'
+                    : 'Export history (.csv)'}
               </button>
             </div>
           ) : null}
@@ -869,28 +986,39 @@ function App() {
               <p>Paste your messy text below for a tactile cleanup.</p>
             </div>
             <div className="pcWorkspaceActions">
-              <button type="button" className="pcCleanButton" onClick={handleClean}>
+              <button
+                type="button"
+                className="pcCleanButton"
+                onClick={handleClean}
+                disabled={!hasInput || isPasting || isCleaning}
+                aria-busy={isCleaning}
+              >
                 <BrushCleaning size={16} strokeWidth={2.3} aria-hidden="true" />
-                <span>Clean</span>
+                <span>{cleanButtonLabel}</span>
               </button>
               <div className="pcExportActions" aria-label="History export actions">
                 <button
                   type="button"
                   className="pcSecondaryButton"
                   onClick={() => handleExportHistory('txt')}
-                  disabled={!history.length}
+                  disabled={historyExportDisabled}
                 >
-                  Export .txt
+                  {exportingHistoryFormat === 'txt' ? 'Exporting...' : isSavingHistory ? 'Saving...' : 'Export .txt'}
                 </button>
                 <button
                   type="button"
                   className="pcSecondaryButton"
                   onClick={() => handleExportHistory('csv')}
-                  disabled={!history.length}
+                  disabled={historyExportDisabled}
                 >
-                  Export .csv
+                  {exportingHistoryFormat === 'csv' ? 'Exporting...' : isSavingHistory ? 'Saving...' : 'Export .csv'}
                 </button>
               </div>
+              {workspaceStatus ? (
+                <p className="pcWorkspaceAssist" role="status" aria-live="polite">
+                  {workspaceStatus}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -907,13 +1035,35 @@ function App() {
             </article>
 
             <article className="pcEditorCard pcEditorCardPreview">
-              <p className="pcEditorLabel pcEditorLabelLive">Live Preview</p>
-              <textarea
-                className="pcEditor pcEditorPreview"
-                value={displayedOutput}
-                readOnly
-                placeholder="Your cleaned content will appear here in real-time..."
-              />
+              <div className="pcEditorCardTop">
+                <p className="pcEditorLabel pcEditorLabelLive">Live Preview</p>
+                <span className={`pcStatusPill pcStatusPill${outputBadgeTone.charAt(0).toUpperCase()}${outputBadgeTone.slice(1)}`}>
+                  {outputBadgeLabel}
+                </span>
+              </div>
+              {showOutputStatus ? (
+                <div
+                  className={`pcOutputState pcOutputState${outputStatusTone.charAt(0).toUpperCase()}${outputStatusTone.slice(1)}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <strong>{outputStatusTitle}</strong>
+                  <span>{outputStatusBody}</span>
+                </div>
+              ) : null}
+              {hasDisplayedOutput ? (
+                <textarea
+                  className="pcEditor pcEditorPreview"
+                  value={displayedOutput}
+                  readOnly
+                  aria-busy={isPasting || isCleaning}
+                />
+              ) : (
+                <div className="pcOutputEmptyState" role="status" aria-live="polite">
+                  <strong>{outputEmptyTitle}</strong>
+                  <p>{outputEmptyBody}</p>
+                </div>
+              )}
             </article>
           </div>
 
@@ -998,6 +1148,12 @@ function App() {
           Terms
         </button>
       </footer>
+
+      {toast ? (
+        <div className="pcToast" role="status" aria-live="polite" aria-atomic="true">
+          {toast}
+        </div>
+      ) : null}
 
       {legalDoc ? (
         <div
