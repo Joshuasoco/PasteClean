@@ -5,8 +5,31 @@ import { plainMode } from './plain'
 import { normalizeStageResult } from './strategy'
 
 const MODE_DEFINITIONS = [plainMode, markdownMode, codeMode, emailMode]
-const URL_RULE_KEYS = ['stripTrackingParams', 'unwrapRedirects', 'decodeReadableUrls']
-const MODE_CONTROLLED_RULE_KEYS = ['decodeHtmlEntities', 'normalizePunctuation', ...URL_RULE_KEYS]
+const BASE_MODE_DEFAULT_CLEANING_OPTIONS = {
+  stripInvisibleChars: true,
+  decodeHtmlEntities: true,
+  normalizePunctuation: true,
+  stripTrackingParams: true,
+  unwrapRedirects: true,
+  decodeReadableUrls: true,
+  preserveCodeTokens: false,
+}
+
+function buildModeDefaultCleaningOptions(mode) {
+  return {
+    ...BASE_MODE_DEFAULT_CLEANING_OPTIONS,
+    decodeHtmlEntities: mode.shouldDecodeHtmlEntities,
+    normalizePunctuation: mode.shouldNormalizePunctuation,
+    stripTrackingParams: mode.shouldCleanUrls,
+    unwrapRedirects: mode.shouldCleanUrls,
+    decodeReadableUrls: mode.shouldCleanUrls,
+    ...(mode.defaultCleaningOptions ?? {}),
+  }
+}
+
+const MODE_CONTROLLED_RULE_KEYS = [
+  ...new Set(MODE_DEFINITIONS.flatMap((mode) => Object.keys(buildModeDefaultCleaningOptions(mode)))),
+]
 
 const MODE_MAP = new Map(MODE_DEFINITIONS.map((mode) => [mode.id, mode]))
 
@@ -19,15 +42,7 @@ export function getModeDefinition(modeId) {
 }
 
 export function getModeDefaultCleaningOptions(modeId) {
-  const mode = getModeDefinition(modeId)
-
-  return {
-    decodeHtmlEntities: mode.shouldDecodeHtmlEntities,
-    normalizePunctuation: mode.shouldNormalizePunctuation,
-    stripTrackingParams: mode.shouldCleanUrls,
-    unwrapRedirects: mode.shouldCleanUrls,
-    decodeReadableUrls: mode.shouldCleanUrls,
-  }
+  return buildModeDefaultCleaningOptions(getModeDefinition(modeId))
 }
 
 export function syncModeControlledOptions(currentOptions, currentModeId, nextModeId) {
