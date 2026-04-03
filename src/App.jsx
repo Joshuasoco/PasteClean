@@ -1181,6 +1181,7 @@ function App() {
 
       <footer className="pcFooter">
         <span>(c) 2026 PasteClean</span>
+        <span>Made by JoshCO</span>
         <span className="pcFooterAction">Last action: {lastAction}</span>
         <span>{toast || (isPasting ? 'Pasting...' : 'Local storage: active')}</span>
         <span>PWA status: {pwaStatus}</span>
