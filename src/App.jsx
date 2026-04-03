@@ -7,6 +7,10 @@ import {
 } from './features/cleaner/cleanText'
 import { getModeDefinition, getModes } from './features/cleaner/modes'
 import { usePasteHistory } from './hooks/usePasteHistory'
+import { useStoredState } from './hooks/useStoredState'
+import { buildTextDiff } from './utils/buildTextDiff'
+import { exportHistory } from './utils/exportHistory'
+import { STORAGE_KEYS } from './utils/storageKeys'
 
 const MODE_OPTIONS = getModes()
 const DEFAULT_MODE = 'plain'
@@ -79,10 +83,15 @@ function getModeLabel(modeId, fallback) {
   return fallback
 }
 
+function createRuleId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions())
+  const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('Live preview is active.')
   const [lastAction, setLastAction] = useState('Live preview is active.')
@@ -91,14 +100,16 @@ function App() {
   const [activeLegalDoc, setActiveLegalDoc] = useState(null)
   const [recoverState, setRecoverState] = useState(null)
   const [displayedOutput, setDisplayedOutput] = useState('')
+  const [draftRuleFind, setDraftRuleFind] = useState('')
+  const [draftRuleReplace, setDraftRuleReplace] = useState('')
   const menuWrapRef = useRef(null)
 
   const deferredInput = useDeferredValue(input)
   const deferredMode = useDeferredValue(mode)
 
   const result = useMemo(
-    () => cleanText(deferredInput, deferredMode, cleaningOptions),
-    [cleaningOptions, deferredInput, deferredMode]
+    () => cleanText(deferredInput, deferredMode, { ...cleaningOptions, customRules }),
+    [cleaningOptions, customRules, deferredInput, deferredMode]
   )
 
   useEffect(() => {
@@ -258,7 +269,7 @@ function App() {
   }
 
   function handleLoadSample() {
-    setRecoverState({ input, mode, cleaningOptions, history })
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
     const sample = getModeDefinition(mode).sample
     startTransition(() => {
       setInput(sample)
@@ -273,7 +284,7 @@ function App() {
   }
 
   function handleRestoreHistory(entry) {
-    setRecoverState({ input, mode, cleaningOptions, history })
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
     startTransition(() => {
       setInput(entry.input)
       setMode(entry.mode || DEFAULT_MODE)
@@ -284,19 +295,42 @@ function App() {
   }
 
   function handleResetSettings() {
-    setRecoverState({ input, mode, cleaningOptions, history })
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
     setCleaningOptions(getDefaultCleaningOptions())
     setToast('Settings reset to default.')
     setLastAction('Settings reset to default.')
     setActiveMenu(null)
   }
 
+  function handleResetCustomRules() {
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setCustomRules([])
+    setToast('Custom rules cleared.')
+    setLastAction('Custom rules cleared.')
+  }
+
   function handleClearLocalData() {
-    setRecoverState({ input, mode, cleaningOptions, history })
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
     clearHistory()
     setCleaningOptions(getDefaultCleaningOptions())
+    setCustomRules([])
     setToast('Local history cleared.')
     setLastAction('Local history cleared.')
+    setActiveMenu(null)
+  }
+
+  function handleExportHistory(format) {
+    const exported = exportHistory(history, format)
+
+    if (!exported) {
+      setToast('Nothing to export yet.')
+      setLastAction('Export skipped: history is empty.')
+      return
+    }
+
+    const label = format === 'csv' ? 'CSV' : 'TXT'
+    setToast(`History exported as ${label}.`)
+    setLastAction(`History exported as ${label}.`)
     setActiveMenu(null)
   }
 
@@ -309,6 +343,7 @@ function App() {
       setInput(recoverState.input)
       setMode(recoverState.mode)
       setCleaningOptions(recoverState.cleaningOptions)
+      setCustomRules(recoverState.customRules ?? [])
       setHistory(recoverState.history)
     })
 
@@ -318,11 +353,59 @@ function App() {
     setActiveMenu(null)
   }
 
+  function handleAddCustomRule() {
+    const findValue = draftRuleFind.trim()
+
+    if (!findValue) {
+      setToast('Find value is required.')
+      setLastAction('Custom rule was not added.')
+      return
+    }
+
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setCustomRules((current) => [
+      {
+        id: createRuleId(),
+        find: findValue,
+        replace: draftRuleReplace,
+        enabled: true,
+      },
+      ...current,
+    ])
+    setDraftRuleFind('')
+    setDraftRuleReplace('')
+    setToast('Custom rule added.')
+    setLastAction('Custom rule added.')
+  }
+
+  function handleUpdateCustomRule(ruleId, field, value) {
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setCustomRules((current) =>
+      current.map((rule) => (rule.id === ruleId ? { ...rule, [field]: value } : rule))
+    )
+  }
+
+  function handleToggleCustomRule(ruleId) {
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setCustomRules((current) =>
+      current.map((rule) => (rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule))
+    )
+  }
+
+  function handleDeleteCustomRule(ruleId) {
+    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setCustomRules((current) => current.filter((rule) => rule.id !== ruleId))
+    setToast('Custom rule deleted.')
+    setLastAction('Custom rule deleted.')
+  }
+
   const inputWords = countWords(input)
   const outputWords = countWords(displayedOutput)
   const historyPreview = history.slice(0, 5)
+  const diffView = useMemo(() => buildTextDiff(input, displayedOutput), [input, displayedOutput])
   const legalDoc = activeLegalDoc ? LEGAL_CONTENT[activeLegalDoc] : null
   const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
+  const activeCustomRuleCount = customRules.filter((rule) => rule.enabled && rule.find).length
   const smartCleanEnabled = enabledRuleCount === CLEANING_RULES.length
   const fixQuotesEnabled = Boolean(cleaningOptions.normalizePunctuation)
   const stripUrlsEnabled =
@@ -397,6 +480,13 @@ function App() {
                   ))}
                 </div>
               )}
+
+              <button type="button" className="pcMenuAction" onClick={() => handleExportHistory('txt')}>
+                Export history (.txt)
+              </button>
+              <button type="button" className="pcMenuAction" onClick={() => handleExportHistory('csv')}>
+                Export history (.csv)
+              </button>
             </div>
           ) : null}
 
@@ -444,12 +534,83 @@ function App() {
               </div>
 
               <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">
+                  Custom find / replace ({activeCustomRuleCount}/{customRules.length} active)
+                </p>
+                <div className="pcCustomRuleComposer">
+                  <input
+                    type="text"
+                    className="pcCustomRuleInput"
+                    placeholder="Find text"
+                    value={draftRuleFind}
+                    onChange={(event) => setDraftRuleFind(event.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="pcCustomRuleInput"
+                    placeholder="Replace with (optional)"
+                    value={draftRuleReplace}
+                    onChange={(event) => setDraftRuleReplace(event.target.value)}
+                  />
+                  <button type="button" className="pcMenuAction pcCustomRuleAdd" onClick={handleAddCustomRule}>
+                    Add custom rule
+                  </button>
+                </div>
+
+                {customRules.length === 0 ? (
+                  <p className="pcMenuEmpty">No custom rules yet.</p>
+                ) : (
+                  <div className="pcCustomRuleList">
+                    {customRules.map((rule) => (
+                      <div key={rule.id} className={`pcCustomRuleItem ${rule.enabled ? 'pcCustomRuleItemOn' : ''}`}>
+                        <div className="pcCustomRuleRow">
+                          <input
+                            type="text"
+                            className="pcCustomRuleInput"
+                            value={rule.find}
+                            onChange={(event) => handleUpdateCustomRule(rule.id, 'find', event.target.value)}
+                            placeholder="Find"
+                          />
+                          <input
+                            type="text"
+                            className="pcCustomRuleInput"
+                            value={rule.replace ?? ''}
+                            onChange={(event) => handleUpdateCustomRule(rule.id, 'replace', event.target.value)}
+                            placeholder="Replace"
+                          />
+                        </div>
+                        <div className="pcCustomRuleRow pcCustomRuleActions">
+                          <button
+                            type="button"
+                            className={`pcMenuPill ${rule.enabled ? 'pcMenuPillActive' : ''}`}
+                            onClick={() => handleToggleCustomRule(rule.id)}
+                          >
+                            {rule.enabled ? 'Enabled' : 'Disabled'}
+                          </button>
+                          <button
+                            type="button"
+                            className="pcMenuAction pcCustomRuleDelete"
+                            onClick={() => handleDeleteCustomRule(rule.id)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pcMenuSection">
                 <p className="pcMenuSectionTitle">Actions</p>
                 <button type="button" className="pcMenuAction" onClick={handleLoadSample}>
                   Load sample text
                 </button>
                 <button type="button" className="pcMenuAction" onClick={handleResetSettings}>
                   Reset cleaning rules
+                </button>
+                <button type="button" className="pcMenuAction" onClick={handleResetCustomRules}>
+                  Reset custom rules
                 </button>
                 <button type="button" className="pcMenuAction" onClick={() => void pasteFromClipboard()}>
                   Paste from clipboard
@@ -577,10 +738,30 @@ function App() {
               <h1>Workspace</h1>
               <p>Paste your messy text below for a tactile cleanup.</p>
             </div>
-            <button type="button" className="pcCleanButton" onClick={handleClean}>
-              <BrushCleaning size={16} strokeWidth={2.3} aria-hidden="true" />
-              <span>Clean</span>
-            </button>
+            <div className="pcWorkspaceActions">
+              <button type="button" className="pcCleanButton" onClick={handleClean}>
+                <BrushCleaning size={16} strokeWidth={2.3} aria-hidden="true" />
+                <span>Clean</span>
+              </button>
+              <div className="pcExportActions" aria-label="History export actions">
+                <button
+                  type="button"
+                  className="pcSecondaryButton"
+                  onClick={() => handleExportHistory('txt')}
+                  disabled={!history.length}
+                >
+                  Export .txt
+                </button>
+                <button
+                  type="button"
+                  className="pcSecondaryButton"
+                  onClick={() => handleExportHistory('csv')}
+                  disabled={!history.length}
+                >
+                  Export .csv
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="pcEditors">
@@ -618,6 +799,55 @@ function App() {
               </button>
             ))}
           </div>
+
+          <article className="pcEditorCard pcDiffCard" aria-live="polite">
+            <div className="pcDiffHeader">
+              <p className="pcEditorLabel">Diff View</p>
+              <p className="pcDiffSummary">
+                {diffView.stats.changed
+                  ? `${diffView.stats.removedCount} removals, ${diffView.stats.addedCount} additions`
+                  : 'No differences'}
+              </p>
+            </div>
+
+            <div className="pcDiffGrid">
+              <section className="pcDiffPane" aria-label="Before cleaning">
+                <h2 className="pcDiffPaneTitle">Before</h2>
+                <div className="pcDiffText" role="textbox" aria-readonly="true">
+                  {diffView.beforeSegments.length === 0 ? (
+                    <span className="pcDiffSegment pcDiffSegmentMuted">No input text.</span>
+                  ) : (
+                    diffView.beforeSegments.map((segment, index) => (
+                      <span
+                        key={`before-${index}`}
+                        className={`pcDiffSegment ${segment.type === 'removed' ? 'pcDiffSegmentRemoved' : ''}`}
+                      >
+                        {segment.value}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="pcDiffPane" aria-label="After cleaning">
+                <h2 className="pcDiffPaneTitle">After</h2>
+                <div className="pcDiffText" role="textbox" aria-readonly="true">
+                  {diffView.afterSegments.length === 0 ? (
+                    <span className="pcDiffSegment pcDiffSegmentMuted">No output text.</span>
+                  ) : (
+                    diffView.afterSegments.map((segment, index) => (
+                      <span
+                        key={`after-${index}`}
+                        className={`pcDiffSegment ${segment.type === 'added' ? 'pcDiffSegmentAdded' : ''}`}
+                      >
+                        {segment.value}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </section>
+            </div>
+          </article>
         </section>
       </section>
 

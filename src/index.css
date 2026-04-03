@@ -331,6 +331,66 @@ button {
   margin-top: 0.35rem;
 }
 
+.pcCustomRuleComposer {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0 0.2rem;
+}
+
+.pcCustomRuleInput {
+  width: 100%;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: #171717;
+  padding: 0.45rem 0.55rem;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.pcCustomRuleInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(36, 211, 109, 0.28);
+}
+
+.pcCustomRuleAdd {
+  margin-top: 0;
+}
+
+.pcCustomRuleList {
+  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0 0.2rem;
+}
+
+.pcCustomRuleItem {
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.5rem;
+}
+
+.pcCustomRuleItemOn {
+  background: #f7fff8;
+}
+
+.pcCustomRuleRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.pcCustomRuleActions {
+  margin-top: 0.45rem;
+  align-items: center;
+}
+
+.pcCustomRuleDelete {
+  margin-top: 0;
+  background: #ffe1db;
+}
+
 .pcMenuDanger {
   background: var(--accent-2);
   color: #111;
@@ -516,6 +576,12 @@ button {
   gap: 1rem;
 }
 
+.pcWorkspaceActions {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+}
+
 .pcWorkspaceTop h1 {
   margin: 0;
   font-family: 'Bricolage Grotesque', sans-serif;
@@ -544,6 +610,32 @@ button {
   min-width: 8.4rem;
   box-shadow: var(--shadow);
   transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcExportActions {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.pcSecondaryButton {
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: #111;
+  padding: 0.42rem 0.72rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcSecondaryButton:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcSecondaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .pcCleanButton:hover {
@@ -610,6 +702,82 @@ button {
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 0.35rem;
+}
+
+.pcDiffCard {
+  margin-top: 0.2rem;
+  min-height: 0;
+  background: #fbfbfb;
+}
+
+.pcDiffHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+
+.pcDiffSummary {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2b2b2b;
+  font-weight: 700;
+}
+
+.pcDiffGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.pcDiffPane {
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.06);
+  padding: 0.6rem;
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+}
+
+.pcDiffPaneTitle {
+  margin: 0 0 0.45rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.74rem;
+  color: #1c1c1c;
+}
+
+.pcDiffText {
+  flex: 1;
+  overflow: auto;
+  border: 2px dashed #272727;
+  border-radius: 8px;
+  padding: 0.6rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  background: #fffef7;
+}
+
+.pcDiffSegment {
+  color: #1c1c1c;
+}
+
+.pcDiffSegmentRemoved {
+  background: #ffd8d0;
+}
+
+.pcDiffSegmentAdded {
+  background: #d2f7df;
+}
+
+.pcDiffSegmentMuted {
+  color: #525252;
 }
 
 .pcBottomTab {
@@ -782,9 +950,14 @@ button {
     width: min(380px, calc(100vw - 1.5rem));
   }
 
+  .pcCustomRuleRow {
+    grid-template-columns: 1fr;
+  }
+
   .pcRail,
   .pcEditors,
-  .pcStatsGrid {
+  .pcStatsGrid,
+  .pcDiffGrid {
     grid-template-columns: 1fr;
   }
 
@@ -793,8 +966,20 @@ button {
     align-items: stretch;
   }
 
+  .pcWorkspaceActions {
+    justify-items: stretch;
+  }
+
   .pcCleanButton {
     width: 100%;
+  }
+
+  .pcExportActions {
+    width: 100%;
+  }
+
+  .pcSecondaryButton {
+    flex: 1;
   }
 
   .pcLegalModal {
