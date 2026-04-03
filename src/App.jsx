@@ -699,7 +699,7 @@ function App() {
           </button>
 
           {activeMenu === 'history' ? (
-            <div className="pcMenu" role="menu" aria-label="History menu">
+            <div className="pcMenu pcMenuHistory" role="menu" aria-label="History menu">
               <div className="pcMenuStatusRow">
                 <p className="pcMenuTitle">Recent Pastes ({history.length}/{historyLimit})</p>
                 <span className={`pcStatusPill pcStatusPill${isSavingHistory ? 'Pending' : hasHistory ? 'Ready' : 'Quiet'}`}>
