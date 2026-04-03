@@ -1082,13 +1082,6 @@ button {
   line-height: 1.5;
 }
 
-.pcBottomTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.35rem;
-}
-
 .pcDiffCard {
   margin-top: 0.2rem;
   min-height: 0;
@@ -1163,20 +1156,6 @@ button {
 
 .pcDiffSegmentMuted {
   color: #525252;
-}
-
-.pcBottomTab {
-  border-radius: 999px;
-  background: var(--paper);
-  color: #171717;
-  padding: 0.46rem 1.05rem;
-  border: 2px solid var(--line);
-  box-shadow: 2px 2px 0 var(--line);
-  font-weight: 700;
-}
-
-.pcBottomTabActive {
-  background: var(--accent);
 }
 
 .pcFooter {

@@ -1308,19 +1308,6 @@ function App() {
             </article>
           </div>
 
-          <div className="pcBottomTabs" aria-label="Format shortcuts">
-            {MODE_OPTIONS.map((option) => (
-              <button
-                key={`bottom-${option.id}`}
-                type="button"
-                className={`pcBottomTab ${option.id === mode ? 'pcBottomTabActive' : ''}`}
-                onClick={() => handleModeChange(option.id)}
-              >
-                {getModeLabel(option.id, option.label)}
-              </button>
-            ))}
-          </div>
-
           <article className="pcEditorCard pcDiffCard" aria-live="polite">
             <div className="pcDiffHeader">
               <p className="pcEditorLabel">Diff View</p>
