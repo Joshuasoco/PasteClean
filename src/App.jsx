@@ -102,6 +102,8 @@ function App() {
   const [displayedOutput, setDisplayedOutput] = useState('')
   const [draftRuleFind, setDraftRuleFind] = useState('')
   const [draftRuleReplace, setDraftRuleReplace] = useState('')
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null)
+  const [isPwaInstalled, setIsPwaInstalled] = useState(false)
   const menuWrapRef = useRef(null)
 
   const deferredInput = useDeferredValue(input)
@@ -126,6 +128,34 @@ function App() {
     mode,
     customRuleSummary: result.customRuleSummary,
   })
+
+  useEffect(() => {
+    const standaloneMediaQuery = window.matchMedia('(display-mode: standalone)')
+
+    if (standaloneMediaQuery.matches) {
+      setIsPwaInstalled(true)
+    }
+
+    function handleInstallPrompt(event) {
+      event.preventDefault()
+      setDeferredInstallPrompt(event)
+    }
+
+    function handleAppInstalled() {
+      setIsPwaInstalled(true)
+      setDeferredInstallPrompt(null)
+      setToast('App installed.')
+      setLastAction('Installed as app.')
+    }
+
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [])
 
   useEffect(() => {
     if (!toast) {
@@ -353,6 +383,25 @@ function App() {
     setActiveMenu(null)
   }
 
+  async function handleInstallPwa() {
+    if (!deferredInstallPrompt) {
+      setToast('Install prompt is not available yet.')
+      setLastAction('Install prompt unavailable.')
+      return
+    }
+
+    deferredInstallPrompt.prompt()
+    const result = await deferredInstallPrompt.userChoice
+
+    if (result.outcome === 'accepted') {
+      setLastAction('Install prompt accepted.')
+    } else {
+      setLastAction('Install prompt dismissed.')
+    }
+
+    setDeferredInstallPrompt(null)
+  }
+
   function handleAddCustomRule() {
     const findValue = draftRuleFind.trim()
 
@@ -408,6 +457,14 @@ function App() {
   const activeCustomRuleCount = customRules.filter((rule) => rule.enabled && rule.find).length
   const smartCleanEnabled = enabledRuleCount === CLEANING_RULES.length
   const fixQuotesEnabled = Boolean(cleaningOptions.normalizePunctuation)
+  const hasServiceWorkerSupport = typeof window !== 'undefined' && 'serviceWorker' in window.navigator
+  const pwaStatus = isPwaInstalled
+    ? 'installed'
+    : deferredInstallPrompt
+      ? 'install available'
+      : hasServiceWorkerSupport
+        ? 'service worker active'
+        : 'not supported'
   const stripUrlsEnabled =
     Boolean(cleaningOptions.stripTrackingParams) &&
     Boolean(cleaningOptions.unwrapRedirects) &&
@@ -855,7 +912,12 @@ function App() {
         <span>(c) 2026 PasteClean</span>
         <span className="pcFooterAction">Last action: {lastAction}</span>
         <span>{toast || (isPasting ? 'Pasting...' : 'Local storage: active')}</span>
-        <span>PWA status: ready</span>
+        <span>PWA status: {pwaStatus}</span>
+        {deferredInstallPrompt && !isPwaInstalled ? (
+          <button type="button" className="pcFooterLink" onClick={() => void handleInstallPwa()}>
+            Install App
+          </button>
+        ) : null}
         <button type="button" className="pcFooterLink" onClick={() => openLegalDoc('privacy')}>
           Privacy
         </button>
