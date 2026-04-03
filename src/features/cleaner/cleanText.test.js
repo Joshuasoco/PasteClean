@@ -125,6 +125,74 @@ describe('cleanText', () => {
     expect(result.mode).toBe('email')
   })
 
+  it('removes Outlook-style multi-line reply header blocks', () => {
+    const input = [
+      'Hi team,',
+      '',
+      'Here is the newest update.',
+      '',
+      'From: Morgan Lee <morgan@example.com>',
+      'Sent: Tuesday, April 1, 2026 9:14 AM',
+      'To: Alex Stone <alex@example.com>',
+      'Subject: Re: Launch readiness',
+      '',
+      'Older reply content',
+    ].join('\n')
+
+    const result = cleanText(input, 'email', getDefaultCleaningOptions('email'))
+
+    expect(result.cleanedText).toBe('Hi team,\n\nHere is the newest update.')
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Reply format detected', value: 'Quoted header block' })
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Header lines removed', value: 4 })
+  })
+
+  it('removes Apple Mail style reply header blocks', () => {
+    const input = [
+      'Latest notes are below.',
+      '',
+      'From: Morgan Lee <morgan@example.com>',
+      'Date: Tue, Apr 1, 2026 at 9:14 AM',
+      'To: Alex Stone <alex@example.com>',
+      'Subject: Re: Launch readiness',
+      '',
+      'Previous email body',
+    ].join('\n')
+
+    const result = cleanText(input, 'email', getDefaultCleaningOptions('email'))
+
+    expect(result.cleanedText).toBe('Latest notes are below.')
+    expect(result.cleanedText).not.toContain('Previous email body')
+  })
+
+  it('avoids false positives for normal Subject and From lines in the latest message', () => {
+    const input = [
+      'Subject: Launch readiness',
+      'From: customer interviews, we learned the onboarding copy is unclear.',
+      '',
+      'Please keep both lines in the cleaned output.',
+    ].join('\n')
+
+    const result = cleanText(input, 'email', getDefaultCleaningOptions('email'))
+
+    expect(result.cleanedText).toContain('Subject: Launch readiness')
+    expect(result.cleanedText).toContain('From: customer interviews, we learned the onboarding copy is unclear.')
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Reply chain removed', value: 'No' })
+  })
+
+  it('removes mobile-style On ... wrote reply separators', () => {
+    const input = [
+      'Quick update before I head out.',
+      '',
+      'On Tue, Apr 1, 2026, at 9:14 AM, Morgan Lee <morgan@example.com> wrote:',
+      '> Previous thread',
+    ].join('\n')
+
+    const result = cleanText(input, 'email', getDefaultCleaningOptions('email'))
+
+    expect(result.cleanedText).toBe('Quick update before I head out.')
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Reply format detected', value: 'Reply separator' })
+  })
+
   it('cleans markdown prose while preserving fenced code blocks and inline code spans', () => {
     const input = [
       '##Heading',
