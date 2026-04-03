@@ -99,6 +99,106 @@ function createRuleId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+const MODE_SAFE_TOGGLES = {
+  plain: [],
+  code: [
+    {
+      key: 'preserveCodeTokens',
+      label: 'Code-safe cleanup',
+      description: 'Protect string literals and executable tokens while still removing copied line numbers.',
+    },
+  ],
+  markdown: [
+    {
+      key: 'preserveMarkdownCode',
+      label: 'Preserve Markdown code fences',
+      description: 'Keep fenced blocks and inline code untouched while prose cleanup still runs.',
+    },
+  ],
+  email: [
+    {
+      key: 'removeQuotedEmailChain',
+      label: 'Remove quoted email chain',
+      description: 'Strip detected reply headers and quoted thread content from older messages.',
+    },
+  ],
+}
+
+function getModeSafeToggles(modeId) {
+  return MODE_SAFE_TOGGLES[modeId] ?? []
+}
+
+function getModeWarnings(modeId, options) {
+  const warnings = []
+  const urlCleanupEnabled =
+    Boolean(options.stripTrackingParams) || Boolean(options.unwrapRedirects) || Boolean(options.decodeReadableUrls)
+
+  if (modeId === 'code' && options.preserveCodeTokens === false) {
+    warnings.push({
+      title: 'Code-safe cleanup is off',
+      body: 'Executable code and string literals can be rewritten by the cleanup rules you have enabled.',
+    })
+
+    if (options.normalizePunctuation) {
+      warnings.push({
+        title: 'Fix Quotes can change executable tokens',
+        body: 'Smart punctuation may rewrite quotes or dashes inside code samples and string literals.',
+      })
+    }
+
+    if (options.decodeHtmlEntities) {
+      warnings.push({
+        title: 'HTML entity decoding can change string literals',
+        body: 'Items like &amp; will be converted before code output is restored.',
+      })
+    }
+
+    if (urlCleanupEnabled) {
+      warnings.push({
+        title: 'Strip URLs can rewrite links inside code',
+        body: 'Readable URLs and tracking cleanup can alter copied URLs stored in source code examples.',
+      })
+    }
+  }
+
+  if (modeId === 'markdown' && options.preserveMarkdownCode === false) {
+    warnings.push({
+      title: 'Markdown code protection is off',
+      body: 'Fenced code blocks and inline code spans will be cleaned like prose.',
+    })
+
+    if (options.normalizePunctuation) {
+      warnings.push({
+        title: 'Fix Quotes can alter inline code',
+        body: 'Quote normalization may change code examples when Markdown code protection is disabled.',
+      })
+    }
+
+    if (options.decodeHtmlEntities) {
+      warnings.push({
+        title: 'HTML entity decoding can alter fenced blocks',
+        body: 'Entities inside code fences and inline spans will be decoded when protection is off.',
+      })
+    }
+
+    if (urlCleanupEnabled) {
+      warnings.push({
+        title: 'Strip URLs can rewrite fenced code samples',
+        body: 'URL cleanup will also run inside Markdown code regions when code-fence protection is disabled.',
+      })
+    }
+
+    if (options.cleanWhitespace) {
+      warnings.push({
+        title: 'Whitespace cleanup can reshape code blocks',
+        body: 'Blank-line cleanup will also affect fenced code sections when protection is disabled.',
+      })
+    }
+  }
+
+  return warnings
+}
+
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
@@ -112,6 +212,7 @@ function App() {
   const [exportingHistoryFormat, setExportingHistoryFormat] = useState(null)
   const [activeMenu, setActiveMenu] = useState(null)
   const [activeLegalDoc, setActiveLegalDoc] = useState(null)
+  const [activeModeGuide, setActiveModeGuide] = useState(null)
   const [recoverState, setRecoverState] = useState(null)
   const [displayedOutput, setDisplayedOutput] = useState('')
   const [draftRuleFind, setDraftRuleFind] = useState('')
@@ -207,6 +308,11 @@ function App() {
 
     function handleEsc(event) {
       if (event.key === 'Escape') {
+        if (activeModeGuide) {
+          setActiveModeGuide(null)
+          return
+        }
+
         if (activeLegalDoc) {
           setActiveLegalDoc(null)
           return
@@ -223,7 +329,7 @@ function App() {
       window.removeEventListener('mousedown', handleClickAway)
       window.removeEventListener('keydown', handleEsc)
     }
-  }, [activeLegalDoc])
+  }, [activeLegalDoc, activeModeGuide])
 
   function openLegalDoc(docType) {
     setActiveMenu(null)
@@ -232,6 +338,14 @@ function App() {
 
   function closeLegalDoc() {
     setActiveLegalDoc(null)
+  }
+
+  function openModeGuide(modeId = mode) {
+    setActiveModeGuide(modeId)
+  }
+
+  function closeModeGuide() {
+    setActiveModeGuide(null)
   }
 
   async function pasteFromClipboard() {
@@ -293,16 +407,43 @@ function App() {
     }))
   }
 
+  function handleToggleModeOption(optionKey) {
+    setCleaningOptions((current) => ({
+      ...current,
+      [optionKey]: !current[optionKey],
+    }))
+  }
+
+  function handleToggleUrlRules() {
+    const nextValue = !stripUrlsEnabled
+    setCleaningOptions((current) => ({
+      ...current,
+      stripTrackingParams: nextValue,
+      unwrapRedirects: nextValue,
+      decodeReadableUrls: nextValue,
+    }))
+  }
+
   function setAllRules(nextValue) {
     const allRuleState = Object.fromEntries(CLEANING_RULES.map((rule) => [rule.key, nextValue]))
     setCleaningOptions((current) => ({ ...current, ...allRuleState }))
   }
 
   function handleModeChange(nextMode) {
+    if (nextMode === mode) {
+      return
+    }
+
+    const nextModeDefinition = getModeDefinition(nextMode)
+    const nextModeLabel = getModeLabel(nextMode, nextModeDefinition.label)
+
     startTransition(() => {
       setCleaningOptions((current) => syncCleaningOptionsForModeChange(current, mode, nextMode))
       setMode(nextMode)
     })
+
+    setToast(`Switched to ${nextModeLabel} mode.`)
+    setLastAction(`Switched to ${nextModeLabel} mode.`)
   }
 
   function handleToggleLivePreview() {
@@ -573,6 +714,17 @@ function App() {
     Boolean(cleaningOptions.stripTrackingParams) &&
     Boolean(cleaningOptions.unwrapRedirects) &&
     Boolean(cleaningOptions.decodeReadableUrls)
+  const currentModeDefinition = getModeDefinition(mode)
+  const currentModeLabel = getModeLabel(mode, currentModeDefinition.label)
+  const modeSafeToggles = getModeSafeToggles(mode)
+  const modeWarnings = getModeWarnings(mode, cleaningOptions)
+  const modeControlsSummary =
+    modeSafeToggles.length === 0
+      ? 'This mode uses the shared cleanup controls only.'
+      : `${modeSafeToggles.filter((toggle) => cleaningOptions[toggle.key]).length}/${modeSafeToggles.length} safeguards on`
+  const modeGuideDefinition = getModeDefinition(activeModeGuide ?? mode)
+  const modeGuideLabel = getModeLabel(modeGuideDefinition.id, modeGuideDefinition.label)
+  const modeGuideToggles = getModeSafeToggles(modeGuideDefinition.id)
   const hasInput = Boolean(input.trim())
   const hasHistory = history.length > 0
   const hasDisplayedOutput = Boolean(displayedOutput.trim())
@@ -775,7 +927,51 @@ function App() {
                     </button>
                   ))}
                 </div>
+                <p className="pcMenuHint pcMenuHintInline">
+                  <strong>{currentModeLabel}:</strong> {currentModeDefinition.description}
+                </p>
               </div>
+
+              <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">Mode-safe controls</p>
+                {modeSafeToggles.length === 0 ? (
+                  <p className="pcMenuEmpty">No extra safeguards are needed for this mode.</p>
+                ) : (
+                  <div className="pcMenuRules">
+                    {modeSafeToggles.map((toggle) => (
+                      <button
+                        key={toggle.key}
+                        type="button"
+                        className={`pcMenuRule ${cleaningOptions[toggle.key] ? 'pcMenuRuleActive' : ''}`}
+                        onClick={() => handleToggleModeOption(toggle.key)}
+                      >
+                        <span className="pcMenuRuleText">
+                          <strong>{toggle.label}</strong>
+                          <small>{toggle.description}</small>
+                        </span>
+                        <span className={`pcToggleMark ${cleaningOptions[toggle.key] ? 'pcToggleMarkOn' : ''}`}>
+                          <span className="pcToggleMarkKnob" aria-hidden="true" />
+                          <span className="pcToggleMarkLabel">{cleaningOptions[toggle.key] ? 'On' : 'Off'}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {modeWarnings.length > 0 ? (
+                <div className="pcMenuSection">
+                  <p className="pcMenuSectionTitle">Structured text warnings</p>
+                  <div className="pcMenuWarnings">
+                    {modeWarnings.map((warning) => (
+                      <div key={warning.title} className="pcMenuWarning">
+                        <strong>{warning.title}</strong>
+                        <span>{warning.body}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="pcMenuSection">
                 <p className="pcMenuSectionTitle">Cleaning rules</p>
@@ -963,15 +1159,7 @@ function App() {
               <button
                 type="button"
                 className={`pcPillToggle ${stripUrlsEnabled ? 'pcPillToggleActive' : ''}`}
-                onClick={() => {
-                  const nextValue = !stripUrlsEnabled
-                  setCleaningOptions((current) => ({
-                    ...current,
-                    stripTrackingParams: nextValue,
-                    unwrapRedirects: nextValue,
-                    decodeReadableUrls: nextValue,
-                  }))
-                }}
+                onClick={handleToggleUrlRules}
               >
                 <span className="pcPillLeft">
                   <Link2Off size={16} />
@@ -1023,6 +1211,9 @@ function App() {
                 <span>{cleanButtonLabel}</span>
               </button>
               <div className="pcExportActions" aria-label="History export actions">
+                <button type="button" className="pcSecondaryButton" onClick={() => openModeGuide()}>
+                  Mode guide
+                </button>
                 <button
                   type="button"
                   className="pcSecondaryButton"
@@ -1203,6 +1394,81 @@ function App() {
       {toast ? (
         <div className="pcToast" role="status" aria-live="polite" aria-atomic="true">
           {toast}
+        </div>
+      ) : null}
+
+      {activeModeGuide ? (
+        <div
+          className="pcLegalBackdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeModeGuide()
+            }
+          }}
+        >
+          <section className="pcLegalModal pcModeGuideModal" role="dialog" aria-modal="true" aria-labelledby="pcModeGuideTitle">
+            <div className="pcLegalTop">
+              <h2 id="pcModeGuideTitle">What These Modes Do</h2>
+              <button type="button" className="pcLegalClose" onClick={closeModeGuide}>
+                Close
+              </button>
+            </div>
+            <p className="pcLegalUpdated">
+              Active tab: {modeGuideLabel}
+              {modeGuideDefinition.id === mode ? ' • current mode' : ''}
+            </p>
+
+            <div className="pcModeGuideTabs" role="tablist" aria-label="Mode guide tabs">
+              {MODE_OPTIONS.map((option) => (
+                <button
+                  key={`guide-${option.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={option.id === modeGuideDefinition.id}
+                  className={`pcMenuPill ${option.id === modeGuideDefinition.id ? 'pcMenuPillActive' : ''}`}
+                  onClick={() => setActiveModeGuide(option.id)}
+                >
+                  {getModeLabel(option.id, option.label)}
+                </button>
+              ))}
+            </div>
+
+            <div className="pcModeGuideBody">
+              <section className="pcModeGuideSection">
+                <p className="pcEditorLabel">Overview</p>
+                <h3>{modeGuideLabel}</h3>
+                <p>{modeGuideDefinition.description}</p>
+              </section>
+
+              <section className="pcModeGuideSection">
+                <p className="pcEditorLabel">What it does</p>
+                <div className="pcModeRuleList">
+                  {modeGuideDefinition.rules.map((rule) => (
+                    <span key={rule} className="pcModeRuleChip">
+                      {rule}
+                    </span>
+                  ))}
+                </div>
+              </section>
+
+              <section className="pcModeGuideSection">
+                <p className="pcEditorLabel">Available safeguards</p>
+                {modeGuideToggles.length === 0 ? (
+                  <p className="pcModePanelEmpty">This mode mainly relies on the shared cleanup controls.</p>
+                ) : (
+                  <div className="pcModeGuideSafeguards">
+                    {modeGuideToggles.map((toggle) => (
+                      <div key={toggle.key} className="pcModeGuideCard">
+                        <strong>{toggle.label}</strong>
+                        <span>{toggle.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
+          </section>
         </div>
       ) : null}
 

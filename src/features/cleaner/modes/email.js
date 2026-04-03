@@ -141,20 +141,23 @@ function transform(text, options = {}) {
   let quotedLinesRemoved = 0
   let headerLinesRemoved = 0
   let removedHeaderChain = false
-  let detectedFormat = 'None'
+  let detectedFormat = options.removeQuotedEmailChain === false ? 'Disabled' : 'None'
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
-    const boundary = detectReplyBoundary(lines, index)
 
-    if (boundary) {
-      removedHeaderChain = true
-      headerLinesRemoved = boundary.headerLinesRemoved
-      detectedFormat = boundary.detectedFormat
-      break
+    if (options.removeQuotedEmailChain !== false) {
+      const boundary = detectReplyBoundary(lines, index)
+
+      if (boundary) {
+        removedHeaderChain = true
+        headerLinesRemoved = boundary.headerLinesRemoved
+        detectedFormat = boundary.detectedFormat
+        break
+      }
     }
 
-    if (/^\s*>/.test(line)) {
+    if (options.removeQuotedEmailChain !== false && /^\s*>/.test(line)) {
       quotedLinesRemoved += 1
       continue
     }
@@ -182,7 +185,9 @@ function transform(text, options = {}) {
         { label: 'Reply format detected', value: detectedFormat },
       ],
       highlights: [
-        'Quoted reply chains are removed to keep the newest message focused.',
+        options.removeQuotedEmailChain === false
+          ? 'Quoted reply cleanup is off, so older thread content stays visible.'
+          : 'Quoted reply chains are removed to keep the newest message focused.',
         'Structured header blocks from common email clients are detected more conservatively to avoid false positives.',
       ],
     },
@@ -213,6 +218,9 @@ On Tue, Apr 1, 2026 at 9:14 AM Morgan wrote:
   shouldCleanUrls: true,
   shouldNormalizePunctuation: true,
   shouldDecodeHtmlEntities: true,
+  defaultCleaningOptions: {
+    removeQuotedEmailChain: true,
+  },
   preprocess: passthroughStage,
   transform,
   postprocess: passthroughStage,

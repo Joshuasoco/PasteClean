@@ -193,6 +193,24 @@ describe('cleanText', () => {
     expect(result.modeSummary.stats).toContainEqual({ label: 'Reply format detected', value: 'Reply separator' })
   })
 
+  it('keeps quoted reply chains when email cleanup is explicitly disabled', () => {
+    const input = [
+      'Quick update before I head out.',
+      '',
+      'On Tue, Apr 1, 2026, at 9:14 AM, Morgan Lee <morgan@example.com> wrote:',
+      '> Previous thread',
+    ].join('\n')
+
+    const result = cleanText(input, 'email', {
+      ...getDefaultCleaningOptions('email'),
+      removeQuotedEmailChain: false,
+    })
+
+    expect(result.cleanedText).toContain('On Tue, Apr 1, 2026, at 9:14 AM, Morgan Lee <morgan@example.com> wrote:')
+    expect(result.cleanedText).toContain('> Previous thread')
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Reply format detected', value: 'Disabled' })
+  })
+
   it('cleans markdown prose while preserving fenced code blocks and inline code spans', () => {
     const input = [
       '##Heading',

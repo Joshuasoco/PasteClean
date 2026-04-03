@@ -184,6 +184,15 @@ button {
   font-size: 0.88rem;
 }
 
+.pcMenuHintInline {
+  padding-top: 0.55rem;
+  padding-bottom: 0;
+}
+
+.pcMenuHintInline strong {
+  font-weight: 800;
+}
+
 .pcMenuStatusRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -302,6 +311,31 @@ button {
 .pcMenuRules {
   display: grid;
   gap: 0.42rem;
+}
+
+.pcMenuWarnings {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.pcMenuWarning {
+  display: grid;
+  gap: 0.16rem;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: #fff1db;
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.55rem 0.65rem;
+}
+
+.pcMenuWarning strong {
+  font-size: 0.82rem;
+}
+
+.pcMenuWarning span {
+  font-size: 0.76rem;
+  color: #2d2d2d;
+  line-height: 1.4;
 }
 
 .pcMenuRule {
@@ -683,6 +717,156 @@ button {
 .pcWorkspaceTop p {
   margin: 0.28rem 0 0;
   color: #232323;
+}
+
+.pcModeRuleList,
+.pcModeToggleGrid,
+.pcModeWarnings {
+  display: grid;
+  gap: 0.52rem;
+}
+
+.pcModeRuleChip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.38rem 0.72rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.pcModePanelEmpty {
+  margin: 0;
+  color: #2f2f2f;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.pcModeToggleCard {
+  width: 100%;
+  text-align: left;
+  padding: 0.62rem 0.7rem;
+  color: var(--ink);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcModeToggleCard:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcModeToggleCardActive {
+  background: #eefdf4;
+}
+
+.pcModeToggleText {
+  display: grid;
+  gap: 0.08rem;
+}
+
+.pcModeToggleText strong {
+  font-size: 0.86rem;
+}
+
+.pcModeToggleText small {
+  color: #2f2f2f;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.pcModeWarning {
+  display: grid;
+  gap: 0.18rem;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: #ffe2dc;
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.68rem 0.78rem;
+}
+
+.pcModeWarning strong {
+  font-size: 0.84rem;
+}
+
+.pcModeWarning span {
+  font-size: 0.78rem;
+  color: #2f2f2f;
+  line-height: 1.45;
+}
+
+.pcModeGuideModal {
+  width: min(860px, 100%);
+}
+
+.pcModeGuideTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.pcModeGuideBody {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.pcModeGuideSection {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fbfbfb;
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.82rem;
+}
+
+.pcModeGuideSection h3 {
+  margin: 0;
+  font-family: 'Bricolage Grotesque', sans-serif;
+  font-size: 1.35rem;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.pcModeGuideSection p {
+  margin: 0.3rem 0 0;
+  color: #252525;
+  line-height: 1.5;
+}
+
+.pcModeGuideSafeguards {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pcModeGuideCard {
+  display: grid;
+  gap: 0.12rem;
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.62rem 0.72rem;
+}
+
+.pcModeGuideCard strong {
+  font-size: 0.86rem;
+}
+
+.pcModeGuideCard span {
+  font-size: 0.78rem;
+  color: #2f2f2f;
+  line-height: 1.42;
 }
 
 .pcCleanButton {

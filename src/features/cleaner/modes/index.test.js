@@ -48,6 +48,9 @@ describe('cleaner modes', () => {
     expect(getModeDefinition('markdown').defaultCleaningOptions).toEqual({
       preserveMarkdownCode: true,
     })
+    expect(getModeDefinition('email').defaultCleaningOptions).toEqual({
+      removeQuotedEmailChain: true,
+    })
     expect(getModeDefinition('code').defaultCleaningOptions).toEqual({
       preserveCodeTokens: true,
       stripInvisibleChars: false,
