@@ -4,9 +4,11 @@ import {
   ClipboardPaste,
   History,
   Link2Off,
+  MoonStar,
   Quote,
   Settings,
   Sparkles,
+  Sun,
   Trash2,
   UserCircle2,
 } from 'lucide-react'
@@ -268,6 +270,7 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
       headline: 'No changes needed for current rules.',
       detail: '',
       items: [],
+      note: '',
     }
   }
 
@@ -288,6 +291,7 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
     headline: 'Changes made',
     detail: `${diffStats.removedCount} removals, ${diffStats.addedCount} additions`,
     items: items.length > 0 ? items.slice(0, 6) : ['Text updated for current rules.'],
+    note: '',
   }
 }
 
@@ -296,6 +300,7 @@ function App() {
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions(DEFAULT_MODE))
   const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
+  const [theme, setTheme] = useStoredState(STORAGE_KEYS.theme, 'light')
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('')
   const [lastAction, setLastAction] = useState('Live preview is active.')
@@ -316,11 +321,19 @@ function App() {
 
   const deferredInput = useDeferredValue(input)
   const deferredMode = useDeferredValue(mode)
+  const isDarkMode = theme === 'dark'
 
   const result = useMemo(
     () => cleanText(deferredInput, deferredMode, { ...cleaningOptions, customRules }),
     [cleaningOptions, customRules, deferredInput, deferredMode]
   )
+
+  useEffect(() => {
+    const nextTheme = isDarkMode ? 'dark' : 'light'
+
+    document.documentElement.dataset.theme = nextTheme
+    document.documentElement.style.colorScheme = nextTheme
+  }, [isDarkMode])
 
   useEffect(() => {
     if (!livePreviewEnabled) {
@@ -782,6 +795,18 @@ function App() {
     setLastAction('Input cleared.')
   }
 
+  function handleToggleTheme() {
+    setTheme((current) => {
+      const nextTheme = current === 'dark' ? 'light' : 'dark'
+      const nextThemeLabel = nextTheme === 'dark' ? 'Dark mode' : 'Light mode'
+
+      setToast(`${nextThemeLabel} enabled.`)
+      setLastAction(`${nextThemeLabel} enabled.`)
+
+      return nextTheme
+    })
+  }
+
   const displayedOutput = displayedResult?.cleanedText ?? ''
   const inputWords = countWords(input)
   const outputWords = countWords(displayedOutput)
@@ -829,8 +854,6 @@ function App() {
     workspaceStatus = 'Reading your clipboard and updating the workspace.'
   } else if (isCleaning) {
     workspaceStatus = 'Refreshing output and copying the latest result to your clipboard.'
-  } else if (outputNeedsRefresh) {
-    workspaceStatus = 'Live preview is paused. Press Refresh output to sync the latest result.'
   } else if (!hasHistory) {
     workspaceStatus = 'Your next edit or paste will appear in History after a short local save.'
   }
@@ -923,6 +946,16 @@ function App() {
             onClick={() => toggleMenu('history')}
           >
             <History size={17} strokeWidth={2.2} />
+          </button>
+          <button
+            type="button"
+            className={`pcIconButton ${isDarkMode ? 'pcIconButtonActive' : ''}`}
+            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-pressed={isDarkMode}
+            title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            onClick={handleToggleTheme}
+          >
+            {isDarkMode ? <Sun size={17} strokeWidth={2.2} /> : <MoonStar size={17} strokeWidth={2.2} />}
           </button>
           <button
             type="button"
@@ -1383,7 +1416,7 @@ function App() {
                   <span>{outputStatusBody}</span>
                 </div>
               ) : null}
-              {hasInput || hasDisplayedOutput ? (
+              {outputChangeSummary.changed ? (
                 <div
                   className={`pcOutputChanges ${outputChangeSummary.changed ? 'pcOutputChangesActive' : 'pcOutputChangesQuiet'}`}
                   role="status"
@@ -1393,17 +1426,13 @@ function App() {
                     <strong>{outputChangeSummary.headline}</strong>
                     {outputChangeSummary.detail ? <span>{outputChangeSummary.detail}</span> : null}
                   </div>
-                  {outputChangeSummary.changed ? (
-                    <div className="pcOutputChangeList">
-                      {outputChangeSummary.items.map((item) => (
-                        <span key={item} className="pcOutputChangeChip">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="pcOutputChangesNote">{outputChangeSummary.headline}</p>
-                  )}
+                  <div className="pcOutputChangeList">
+                    {outputChangeSummary.items.map((item) => (
+                      <span key={item} className="pcOutputChangeChip">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : null}
               {hasDisplayedOutput ? (

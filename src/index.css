@@ -18,6 +18,20 @@
   background: var(--bg);
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #101614;
+  --ink: #edf4ee;
+  --paper: #19211e;
+  --card: #151b19;
+  --card-soft: #202927;
+  --accent: #24d36d;
+  --accent-2: #ff8a74;
+  --line: #d8e3d8;
+  --shadow: 5px 5px 0 rgba(0, 0, 0, 0.42);
+  --shadow-soft: 3px 3px 0 rgba(0, 0, 0, 0.34);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -41,6 +55,20 @@ body {
       rgba(255, 255, 255, 0) 22px
     );
   color: inherit;
+}
+
+html[data-theme='dark'],
+html[data-theme='dark'] body {
+  background:
+    radial-gradient(circle at top left, rgba(36, 211, 109, 0.12), transparent 32%),
+    linear-gradient(145deg, rgba(18, 27, 24, 0.98), rgba(13, 18, 17, 0.96) 42%, rgba(10, 13, 13, 0.96)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 10px,
+      rgba(255, 255, 255, 0) 10px,
+      rgba(255, 255, 255, 0) 22px
+    );
 }
 
 button,
@@ -191,6 +219,157 @@ button {
 
 .pcMenuHintInline strong {
   font-weight: 800;
+}
+
+html[data-theme='dark'] .pcLogo,
+html[data-theme='dark'] .pcLabel,
+html[data-theme='dark'] .pcSubLabel,
+html[data-theme='dark'] .pcQuickHint,
+html[data-theme='dark'] .pcMenuTitle,
+html[data-theme='dark'] .pcEditorLabel,
+html[data-theme='dark'] .pcEditorLabelLive,
+html[data-theme='dark'] .pcDiffPaneTitle,
+html[data-theme='dark'] .pcDiffSegment,
+html[data-theme='dark'] .pcFooter,
+html[data-theme='dark'] .pcFooterAction,
+html[data-theme='dark'] .pcFooterLink,
+html[data-theme='dark'] .pcStatsGrid strong,
+html[data-theme='dark'] .pcStatsGrid span,
+html[data-theme='dark'] .pcPillToggle,
+html[data-theme='dark'] .pcSecondaryButton,
+html[data-theme='dark'] .pcEditorIconButton,
+html[data-theme='dark'] .pcToggleMarkLabel,
+html[data-theme='dark'] .pcOutputEmptyState strong,
+html[data-theme='dark'] .pcLegalTop h2,
+html[data-theme='dark'] .pcLegalSection h3,
+html[data-theme='dark'] .pcWorkspaceTop p,
+html[data-theme='dark'] .pcWorkspaceTop .pcWorkspaceAssist,
+html[data-theme='dark'] .pcModePanelEmpty,
+html[data-theme='dark'] .pcModeToggleText small,
+html[data-theme='dark'] .pcModeWarning span,
+html[data-theme='dark'] .pcModeGuideSection p,
+html[data-theme='dark'] .pcModeGuideCard span,
+html[data-theme='dark'] .pcMenuHint,
+html[data-theme='dark'] .pcMenuEmpty,
+html[data-theme='dark'] .pcMenuSectionTitle,
+html[data-theme='dark'] .pcMenuWarning span,
+html[data-theme='dark'] .pcMenuRuleText small,
+html[data-theme='dark'] .pcMenuItem span,
+html[data-theme='dark'] .pcOutputState span,
+html[data-theme='dark'] .pcOutputChangesTop span,
+html[data-theme='dark'] .pcOutputChangesNote,
+html[data-theme='dark'] .pcOutputEmptyState p,
+html[data-theme='dark'] .pcDiffSummary,
+html[data-theme='dark'] .pcDiffSegmentMuted,
+html[data-theme='dark'] .pcLegalUpdated,
+html[data-theme='dark'] .pcLegalSection p {
+  color: #c9d2cb;
+}
+
+html[data-theme='dark'] .pcStatusPillQuiet,
+html[data-theme='dark'] .pcSwitchOff,
+html[data-theme='dark'] .pcToggleMark {
+  background: #44504b;
+}
+
+html[data-theme='dark'] .pcEmptyState,
+html[data-theme='dark'] .pcModeGuideSection,
+html[data-theme='dark'] .pcDiffCard {
+  background: #1b2321;
+}
+
+html[data-theme='dark'] .pcEmptyStatePending,
+html[data-theme='dark'] .pcOutputStatePending {
+  background: #4b4022;
+}
+
+html[data-theme='dark'] .pcStatusPillReady,
+html[data-theme='dark'] .pcModeToggleCardActive,
+html[data-theme='dark'] .pcOutputStateIdle,
+html[data-theme='dark'] .pcOutputChangesActive,
+html[data-theme='dark'] .pcCustomRuleItemOn {
+  background: #1f3a2a;
+}
+
+html[data-theme='dark'] .pcStatusPillWarn,
+html[data-theme='dark'] .pcMenuWarning,
+html[data-theme='dark'] .pcModeWarning,
+html[data-theme='dark'] .pcOutputStateWarn,
+html[data-theme='dark'] .pcCustomRuleDelete {
+  background: #4b2b26;
+}
+
+html[data-theme='dark'] .pcOutputStateEmpty,
+html[data-theme='dark'] .pcOutputChangesQuiet {
+  background: #262d2a;
+}
+
+html[data-theme='dark'] .pcPillState,
+html[data-theme='dark'] .pcModeRuleChip,
+html[data-theme='dark'] .pcModeGuideCard,
+html[data-theme='dark'] .pcOutputChangeChip,
+html[data-theme='dark'] .pcDiffPane,
+html[data-theme='dark'] .pcEditor,
+html[data-theme='dark'] .pcCustomRuleInput {
+  background: #121816;
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .pcTopTab,
+html[data-theme='dark'] .pcIconButton,
+html[data-theme='dark'] .pcAvatar,
+html[data-theme='dark'] .pcPillToggle,
+html[data-theme='dark'] .pcSecondaryButton,
+html[data-theme='dark'] .pcFooterLink,
+html[data-theme='dark'] .pcEditorIconButton,
+html[data-theme='dark'] .pcMenuPill,
+html[data-theme='dark'] .pcMenuRule,
+html[data-theme='dark'] .pcMenuItem,
+html[data-theme='dark'] .pcMenuAction {
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .pcTopTabActive,
+html[data-theme='dark'] .pcIconButtonActive,
+html[data-theme='dark'] .pcAvatarActive,
+html[data-theme='dark'] .pcPillToggleActive,
+html[data-theme='dark'] .pcToggleMarkOn {
+  color: #102017;
+}
+
+html[data-theme='dark'] .pcEditorPreview {
+  background: #17211d;
+}
+
+html[data-theme='dark'] .pcOutputEmptyState,
+html[data-theme='dark'] .pcDiffText {
+  background: #141b19;
+}
+
+html[data-theme='dark'] .pcEditor:focus,
+html[data-theme='dark'] .pcCustomRuleInput:focus {
+  background: #1a2420;
+}
+
+html[data-theme='dark'] .pcDiffSegmentRemoved {
+  background: #61332d;
+}
+
+html[data-theme='dark'] .pcDiffSegmentAdded {
+  background: #254634;
+}
+
+html[data-theme='dark'] .pcDiffText {
+  border-color: #7f8b84;
+}
+
+html[data-theme='dark'] .pcToast {
+  background: #203229;
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .pcLegalBackdrop {
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .pcMenuStatusRow {
