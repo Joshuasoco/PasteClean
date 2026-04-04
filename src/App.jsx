@@ -99,8 +99,26 @@ function createRuleId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+const WRITING_AGGRESSIVE_OPTION_KEYS = ['stripHtmlTags', 'repairWrappedUrls']
+
 const MODE_SAFE_TOGGLES = {
-  plain: [],
+  plain: [
+    {
+      key: 'aggressiveWriting',
+      label: 'Aggressive Writing',
+      description: 'Turns on the stronger Writing-only cleanup helpers below while keeping the default path conservative.',
+    },
+    {
+      key: 'stripHtmlTags',
+      label: 'Strip pasted HTML tags',
+      description: 'Remove leftover tags like <div>, <p>, <br>, or <strong> from pasted writing.',
+    },
+    {
+      key: 'repairWrappedUrls',
+      label: 'Repair wrapped URLs',
+      description: 'Rejoin links split across line breaks before tracking cleanup and readable URL formatting run.',
+    },
+  ],
   code: [
     {
       key: 'preserveCodeTokens',
@@ -126,6 +144,37 @@ const MODE_SAFE_TOGGLES = {
 
 function getModeSafeToggles(modeId) {
   return MODE_SAFE_TOGGLES[modeId] ?? []
+}
+
+function syncWritingAggressiveToggle(options) {
+  return {
+    ...options,
+    aggressiveWriting: WRITING_AGGRESSIVE_OPTION_KEYS.every((key) => Boolean(options[key])),
+  }
+}
+
+function toggleModeOption(options, optionKey) {
+  if (optionKey === 'aggressiveWriting') {
+    const nextValue = !options.aggressiveWriting
+
+    return syncWritingAggressiveToggle({
+      ...options,
+      aggressiveWriting: nextValue,
+      ...Object.fromEntries(WRITING_AGGRESSIVE_OPTION_KEYS.map((key) => [key, nextValue])),
+    })
+  }
+
+  if (WRITING_AGGRESSIVE_OPTION_KEYS.includes(optionKey)) {
+    return syncWritingAggressiveToggle({
+      ...options,
+      [optionKey]: !options[optionKey],
+    })
+  }
+
+  return {
+    ...options,
+    [optionKey]: !options[optionKey],
+  }
 }
 
 function getModeWarnings(modeId, options) {
@@ -199,6 +248,49 @@ function getModeWarnings(modeId, options) {
   return warnings
 }
 
+function getSummaryStatValue(summary, label) {
+  const matchedStat = summary?.stats?.find((entry) => entry.label === label)
+  return typeof matchedStat?.value === 'number' ? matchedStat.value : 0
+}
+
+function formatSummaryItem(label, count) {
+  if (!count) {
+    return null
+  }
+
+  return `${label} (${count})`
+}
+
+function buildOutputChangeSummary(cleaningResult, diffStats) {
+  if (!cleaningResult || !diffStats.changed) {
+    return {
+      changed: false,
+      headline: 'No changes needed for current rules.',
+      detail: '',
+      items: [],
+    }
+  }
+
+  const items = [
+    formatSummaryItem('Formatting removed', getSummaryStatValue(cleaningResult.modeSummary, 'Formatting markers removed')),
+    formatSummaryItem('HTML tags removed', getSummaryStatValue(cleaningResult.modeSummary, 'HTML tags removed')),
+    formatSummaryItem('Entities decoded', cleaningResult.sharedSummary?.entitiesDecoded ?? 0),
+    formatSummaryItem('Quotes normalized', cleaningResult.sharedSummary?.punctuationNormalized ?? 0),
+    formatSummaryItem('Invisible characters removed', cleaningResult.sharedSummary?.invisibleCharsRemoved ?? 0),
+    formatSummaryItem('Wrapped URLs repaired', cleaningResult.urlSummary?.wrappedUrlsRepaired ?? 0),
+    formatSummaryItem('URLs cleaned', cleaningResult.urlSummary?.urlsChanged ?? 0),
+    formatSummaryItem('Tracking params removed', cleaningResult.urlSummary?.trackingParamsRemoved ?? 0),
+    formatSummaryItem('Custom replacements applied', cleaningResult.customRuleSummary?.replacementsMade ?? 0),
+  ].filter(Boolean)
+
+  return {
+    changed: true,
+    headline: 'Changes made',
+    detail: `${diffStats.removedCount} removals, ${diffStats.addedCount} additions`,
+    items: items.length > 0 ? items.slice(0, 6) : ['Text updated for current rules.'],
+  }
+}
+
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
@@ -214,7 +306,7 @@ function App() {
   const [activeLegalDoc, setActiveLegalDoc] = useState(null)
   const [activeModeGuide, setActiveModeGuide] = useState(null)
   const [recoverState, setRecoverState] = useState(null)
-  const [displayedOutput, setDisplayedOutput] = useState('')
+  const [displayedResult, setDisplayedResult] = useState(null)
   const [draftRuleFind, setDraftRuleFind] = useState('')
   const [draftRuleReplace, setDraftRuleReplace] = useState('')
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null)
@@ -235,8 +327,8 @@ function App() {
       return
     }
 
-    setDisplayedOutput(result.cleanedText)
-  }, [livePreviewEnabled, result.cleanedText])
+    setDisplayedResult(result)
+  }, [livePreviewEnabled, result])
 
   const { history, setHistory, clearHistory, historyLimit, isSavingHistory } = usePasteHistory({
     input,
@@ -383,7 +475,7 @@ function App() {
     }
 
     setIsCleaning(true)
-    setDisplayedOutput(result.cleanedText)
+    setDisplayedResult(result)
 
     try {
       await navigator.clipboard.writeText(result.cleanedText)
@@ -408,10 +500,7 @@ function App() {
   }
 
   function handleToggleModeOption(optionKey) {
-    setCleaningOptions((current) => ({
-      ...current,
-      [optionKey]: !current[optionKey],
-    }))
+    setCleaningOptions((current) => toggleModeOption(current, optionKey))
   }
 
   function handleToggleUrlRules() {
@@ -451,7 +540,7 @@ function App() {
       const next = !current
 
       if (next) {
-        setDisplayedOutput(result.cleanedText)
+        setDisplayedResult(result)
         setToast('Live preview is active. Changes flow into the output automatically while you type.')
         setLastAction('Live preview activated.')
       } else {
@@ -687,16 +776,18 @@ function App() {
     setRecoverState({ input, mode, cleaningOptions, customRules, history })
     startTransition(() => {
       setInput('')
-      setDisplayedOutput('')
+      setDisplayedResult(null)
     })
     setToast('Input cleared.')
     setLastAction('Input cleared.')
   }
 
+  const displayedOutput = displayedResult?.cleanedText ?? ''
   const inputWords = countWords(input)
   const outputWords = countWords(displayedOutput)
   const historyPreview = history.slice(0, 5)
   const diffView = useMemo(() => buildTextDiff(input, displayedOutput), [input, displayedOutput])
+  const outputChangeSummary = useMemo(() => buildOutputChangeSummary(displayedResult, diffView), [displayedResult, diffView])
   const legalDoc = activeLegalDoc ? LEGAL_CONTENT[activeLegalDoc] : null
   const enabledRuleCount = CLEANING_RULES.filter((rule) => cleaningOptions[rule.key]).length
   const activeCustomRuleCount = customRules.filter((rule) => rule.enabled && rule.find).length
@@ -1290,6 +1381,29 @@ function App() {
                 >
                   <strong>{outputStatusTitle}</strong>
                   <span>{outputStatusBody}</span>
+                </div>
+              ) : null}
+              {hasInput || hasDisplayedOutput ? (
+                <div
+                  className={`pcOutputChanges ${outputChangeSummary.changed ? 'pcOutputChangesActive' : 'pcOutputChangesQuiet'}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="pcOutputChangesTop">
+                    <strong>{outputChangeSummary.headline}</strong>
+                    {outputChangeSummary.detail ? <span>{outputChangeSummary.detail}</span> : null}
+                  </div>
+                  {outputChangeSummary.changed ? (
+                    <div className="pcOutputChangeList">
+                      {outputChangeSummary.items.map((item) => (
+                        <span key={item} className="pcOutputChangeChip">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="pcOutputChangesNote">{outputChangeSummary.headline}</p>
+                  )}
                 </div>
               ) : null}
               {hasDisplayedOutput ? (

@@ -8,6 +8,7 @@ describe('cleanText', () => {
 
     expect(result.cleanedText).toBe('"Hello"-& world')
     expect(result.changed).toBe(true)
+    expect(result.sharedSummary.entitiesDecoded).toBe(2)
   })
 
   it('applies enabled custom find/replace rules and reports summary', () => {
@@ -35,6 +36,55 @@ describe('cleanText', () => {
     expect(result.cleanedText).toContain('const docs = "https://example.com/New%20Drop?utm_source=mail&keep=1";')
     expect(result.cleanedText).not.toContain('1 |')
     expect(result.urlSummary.trackingParamsRemoved).toBe(0)
+  })
+
+  it('keeps writing mode conservative by default and does not strip literal HTML tags', () => {
+    const input = '<p>Hello team</p>'
+    const result = cleanText(input, 'plain', getDefaultCleaningOptions('plain'))
+
+    expect(result.cleanedText).toBe(input)
+    expect(result.changed).toBe(false)
+    expect(result.modeSummary.stats).toContainEqual({ label: 'HTML tags removed', value: 0 })
+  })
+
+  it('strips pasted HTML tags in writing mode when the aggressive html toggle is enabled', () => {
+    const input =
+      '<div><p>Hello <strong>team</strong></p><br />Visit <a href="https://example.com/docs?utm_source=news">docs</a></div>'
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      stripHtmlTags: true,
+    })
+
+    expect(result.cleanedText).toBe('Hello team\n\nVisit docs')
+    expect(result.changed).toBe(true)
+    expect(result.modeSummary.stats).toContainEqual({ label: 'HTML tags removed', value: 9 })
+  })
+
+  it('repairs wrapped urls in writing mode before cleaning tracking params', () => {
+    const input = 'Visit https://example.com/docs/\nlaunch?utm_source=newsletter&keep=1'
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      repairWrappedUrls: true,
+    })
+
+    expect(result.cleanedText).toBe('Visit https://example.com/docs/launch?keep=1')
+    expect(result.changed).toBe(true)
+    expect(result.urlSummary.wrappedUrlsRepaired).toBe(1)
+    expect(result.urlSummary.trackingParamsRemoved).toBe(1)
+  })
+
+  it('keeps already-clean writing unchanged even when aggressive writing helpers are available', () => {
+    const input = 'Clean copy lives at https://example.com/docs?keep=1'
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      stripHtmlTags: true,
+      repairWrappedUrls: true,
+    })
+
+    expect(result.cleanedText).toBe(input)
+    expect(result.changed).toBe(false)
+    expect(result.urlSummary.wrappedUrlsRepaired).toBe(0)
+    expect(result.urlSummary.urlsChanged).toBe(0)
   })
 
   it('lets mode defaults follow the selected mode without overwriting user overrides', () => {

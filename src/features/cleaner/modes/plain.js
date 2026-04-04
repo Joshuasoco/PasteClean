@@ -3,6 +3,9 @@ import { passthroughStage } from './strategy'
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n[ \t]*\n(?:[ \t]*\n)+/g
 const INLINE_WHITESPACE_RUN = /([^\s\n])[^\S\n]{2,}(?=[^\s\n])/g
+const HTML_TAG_PATTERN = /<\/?[a-z][^>\n]*>/gi
+const BLOCK_HTML_TAG_PATTERN =
+  /<\/?(?:address|article|aside|blockquote|br|caption|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*>/gi
 
 function stripMarkdownLinks(value) {
   return value.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1 ($2)')
@@ -17,11 +20,34 @@ function stripInlineMarkdown(value) {
     .replace(/~~(.*?)~~/g, '$1')
 }
 
+function stripHtmlTags(value) {
+  const tagsRemoved = value.match(HTML_TAG_PATTERN)?.length ?? 0
+
+  if (tagsRemoved === 0) {
+    return {
+      text: value,
+      tagsRemoved: 0,
+    }
+  }
+
+  const text = value
+    .replace(BLOCK_HTML_TAG_PATTERN, '\n')
+    .replace(HTML_TAG_PATTERN, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+
+  return {
+    text,
+    tagsRemoved,
+  }
+}
+
 function transform(text, options = {}) {
-  const strippedText = stripInlineMarkdown(stripMarkdownLinks(text))
+  const markdownStrippedText = stripInlineMarkdown(stripMarkdownLinks(text))
+  const htmlStrippedResult = options.stripHtmlTags ? stripHtmlTags(markdownStrippedText) : { text: markdownStrippedText, tagsRemoved: 0 }
   let structuralTokensRemoved = 0
 
-  let cleaned = strippedText
+  let cleaned = htmlStrippedResult.text
     .split('\n')
     .map((line) => {
       const nextLine = line
@@ -55,11 +81,14 @@ function transform(text, options = {}) {
       title: 'Plain text cleanup',
       stats: [
         { label: 'Formatting markers removed', value: structuralTokensRemoved },
+        { label: 'HTML tags removed', value: htmlStrippedResult.tagsRemoved },
         { label: 'Paragraphs kept readable', value: cleaned ? cleaned.split(/\n{2,}/).length : 0 },
       ],
       highlights: [
-        'Markdown markers and quote prefixes were stripped.',
-        'The output is flattened into readable plain paragraphs.',
+        'Writing mode stays conservative by default and removes copied formatting markers first.',
+        options.stripHtmlTags
+          ? 'Aggressive HTML tag stripping is enabled for pasted markup fragments.'
+          : 'HTML tag stripping stays optional so visible prose is not over-cleaned by default.',
       ],
     },
   }
@@ -68,11 +97,11 @@ function transform(text, options = {}) {
 export const plainMode = {
   id: 'plain',
   label: 'Plain text',
-  description: 'Strips formatting markers and leaves readable text only.',
+  description: 'Conservative writing cleanup for prose. It removes copied formatting markers by default and leaves stronger HTML and wrapped-URL cleanup behind optional toggles.',
   rules: [
-    'Formatting markers are removed.',
-    'Paragraph spacing is kept readable.',
-    'Smart punctuation, entities, and URL cleanup stay enabled by default.',
+    'Copied Markdown markers, quote prefixes, and list bullets are removed.',
+    'Paragraph spacing stays readable without aggressively rewriting visible prose by default.',
+    'Aggressive Writing can additionally strip pasted HTML tags and repair wrapped URLs before URL cleanup.',
   ],
   sample: `# Weekly Update
 
@@ -83,6 +112,11 @@ export const plainMode = {
   shouldCleanUrls: true,
   shouldNormalizePunctuation: true,
   shouldDecodeHtmlEntities: true,
+  defaultCleaningOptions: {
+    aggressiveWriting: false,
+    stripHtmlTags: false,
+    repairWrappedUrls: false,
+  },
   preprocess: passthroughStage,
   transform,
   postprocess: passthroughStage,

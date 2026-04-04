@@ -22,6 +22,18 @@ describe('cleanUrlsInText', () => {
     expect(result.summary.trackingParamsRemoved).toBe(1)
   })
 
+  it('repairs wrapped urls before cleanup when enabled', () => {
+    const input = 'Visit https://example.com/docs/\nlaunch?utm_source=news&keep=1'
+    const result = cleanUrlsInText(input, {
+      repairWrappedUrls: true,
+    })
+
+    expect(result.text).toBe('Visit https://example.com/docs/launch?keep=1')
+    expect(result.summary.wrappedUrlsRepaired).toBe(1)
+    expect(result.summary.urlsChanged).toBe(1)
+    expect(result.summary.trackingParamsRemoved).toBe(1)
+  })
+
   it('supports disabling url cleanup options', () => {
     const input = 'Link https://example.com/a%20b?utm_source=news&ok=1'
     const result = cleanUrlsInText(input, {
@@ -32,5 +44,16 @@ describe('cleanUrlsInText', () => {
 
     expect(result.text).toBe(input)
     expect(result.summary.urlsChanged).toBe(0)
+  })
+
+  it('leaves already-clean urls alone even when wrapped-url repair is enabled', () => {
+    const input = 'Visit https://example.com/docs?keep=1'
+    const result = cleanUrlsInText(input, {
+      repairWrappedUrls: true,
+    })
+
+    expect(result.text).toBe(input)
+    expect(result.summary.urlsChanged).toBe(0)
+    expect(result.summary.wrappedUrlsRepaired).toBe(0)
   })
 })

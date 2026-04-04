@@ -14,6 +14,11 @@ const TRACKING_PARAM_NAMES = new Set([
 ])
 const REDIRECT_PARAM_CANDIDATES = ['url', 'u', 'q', 'target', 'dest', 'destination', 'redirect', 'redirect_url', 'redirect_uri', 'r']
 const WRAPPER_HOST_MARKERS = ['google.', 'facebook.com', 'l.instagram.com', 'lnkd.in', 't.co', 'outlook.com', 'safelinks.protection.outlook.com']
+const URL_START_PATTERN = /^https?:\/\//i
+const URL_CONTINUATION_CHARACTER = /[^\s<>"']/
+const WRAPPED_URL_CONTINUATION_HINT = /^[/?#&%=]/
+const WRAPPED_URL_PREVIOUS_HINT = /[/?#&%=._~-]$/
+const WRAPPED_URL_PARTIAL_ESCAPE_HINT = /%(?:[0-9a-f])?$/i
 
 function safeDecode(value) {
   let decoded = value
@@ -177,6 +182,108 @@ function splitTrailingPunctuation(value) {
   return { core, trailing }
 }
 
+function startsUrlAt(value, index) {
+  return value.startsWith('https://', index) || value.startsWith('http://', index)
+}
+
+function readUrlContinuation(value, index) {
+  let cursor = index
+
+  while (cursor < value.length && URL_CONTINUATION_CHARACTER.test(value[cursor])) {
+    cursor += 1
+  }
+
+  return value.slice(index, cursor)
+}
+
+function shouldRepairWrappedUrl(currentUrl, continuation) {
+  if (!continuation) {
+    return false
+  }
+
+  if (!URL_START_PATTERN.test(currentUrl)) {
+    return false
+  }
+
+  return (
+    WRAPPED_URL_CONTINUATION_HINT.test(continuation) ||
+    WRAPPED_URL_PREVIOUS_HINT.test(currentUrl) ||
+    WRAPPED_URL_PARTIAL_ESCAPE_HINT.test(currentUrl)
+  )
+}
+
+function repairWrappedUrlsInText(value, enabled = false) {
+  if (!enabled) {
+    return {
+      text: value,
+      wrappedUrlsRepaired: 0,
+    }
+  }
+
+  let text = ''
+  let index = 0
+  let wrappedUrlsRepaired = 0
+
+  while (index < value.length) {
+    if (!startsUrlAt(value, index)) {
+      text += value[index]
+      index += 1
+      continue
+    }
+
+    let url = ''
+    let cursor = index
+    let repairedCurrentUrl = false
+
+    while (cursor < value.length) {
+      const character = value[cursor]
+
+      if (/\s/.test(character)) {
+        let whitespaceEnd = cursor
+
+        while (whitespaceEnd < value.length && /\s/.test(value[whitespaceEnd])) {
+          whitespaceEnd += 1
+        }
+
+        const whitespace = value.slice(cursor, whitespaceEnd)
+
+        if (!whitespace.includes('\n')) {
+          break
+        }
+
+        const continuation = readUrlContinuation(value, whitespaceEnd)
+
+        if (!shouldRepairWrappedUrl(url, continuation)) {
+          break
+        }
+
+        repairedCurrentUrl = true
+        cursor = whitespaceEnd
+        continue
+      }
+
+      if (!URL_CONTINUATION_CHARACTER.test(character)) {
+        break
+      }
+
+      url += character
+      cursor += 1
+    }
+
+    if (repairedCurrentUrl) {
+      wrappedUrlsRepaired += 1
+    }
+
+    text += url
+    index = cursor
+  }
+
+  return {
+    text,
+    wrappedUrlsRepaired,
+  }
+}
+
 function cleanSingleUrl(rawUrl, options = {}) {
   const { core, trailing } = splitTrailingPunctuation(rawUrl)
 
@@ -237,8 +344,9 @@ function cleanSingleUrl(rawUrl, options = {}) {
 
 export function cleanUrlsInText(value, options = {}) {
   const urlChanges = []
+  const wrappedUrlRepairResult = repairWrappedUrlsInText(value, options.repairWrappedUrls === true)
 
-  const text = value.replace(URL_PATTERN, (match) => {
+  const text = wrappedUrlRepairResult.text.replace(URL_PATTERN, (match) => {
     const cleaned = cleanSingleUrl(match, options)
 
     if (!cleaned) {
@@ -254,6 +362,7 @@ export function cleanUrlsInText(value, options = {}) {
     urlChanges,
     summary: {
       urlsChanged: urlChanges.length,
+      wrappedUrlsRepaired: wrappedUrlRepairResult.wrappedUrlsRepaired,
       trackingParamsRemoved: urlChanges.reduce((sum, change) => sum + change.removedParamsCount, 0),
       redirectsUnwrapped: urlChanges.reduce((sum, change) => sum + change.unwrapped, 0),
       urlsDecoded: urlChanges.filter((change) => change.decoded).length,

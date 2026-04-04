@@ -1,5 +1,6 @@
 const INVISIBLE_CHARACTERS = /[\u00AD\u200B-\u200D\u2060\uFEFF]/g
 const AI_EM_DASHES = /\u2014/g
+const HTML_ENTITY_PATTERN = /&(?:#\d+|#x[\da-f]+|[a-z][a-z0-9]+);/gi
 const EMOJI_PATTERN =
   /(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*|[#*0-9]\uFE0F?\u20E3)/gu
 
@@ -45,8 +46,27 @@ function decodeHtmlEntities(value) {
   return decoded
 }
 
+function countMatches(value, pattern) {
+  return value.match(pattern)?.length ?? 0
+}
+
 function normalizeSmartPunctuation(value) {
-  return Array.from(value, (character) => SMART_PUNCTUATION_MAP.get(character) ?? character).join('')
+  let replacements = 0
+
+  const text = Array.from(value, (character) => {
+    const normalizedCharacter = SMART_PUNCTUATION_MAP.get(character)
+
+    if (normalizedCharacter) {
+      replacements += 1
+    }
+
+    return normalizedCharacter ?? character
+  }).join('')
+
+  return {
+    text,
+    replacements,
+  }
 }
 
 function countOccurrences(value, search) {
@@ -67,28 +87,48 @@ export function countLines(value) {
 
 export function applySharedCleanup(value, options = {}) {
   let text = (value ?? '').replace(/\r\n?/g, '\n')
+  const summary = {
+    entitiesDecoded: 0,
+    aiEmDashesRemoved: 0,
+    punctuationNormalized: 0,
+    emojiRemoved: 0,
+    invisibleCharsRemoved: 0,
+  }
 
   if (options.decodeHtmlEntities) {
-    text = decodeHtmlEntities(text)
+    const decodedText = decodeHtmlEntities(text)
+
+    if (decodedText !== text) {
+      summary.entitiesDecoded = countMatches(text, HTML_ENTITY_PATTERN)
+      text = decodedText
+    }
   }
 
   if (options.removeAiEmDash) {
+    summary.aiEmDashesRemoved = countMatches(text, AI_EM_DASHES)
     text = text.replace(AI_EM_DASHES, '')
   }
 
   if (options.normalizePunctuation) {
-    text = normalizeSmartPunctuation(text)
+    const normalized = normalizeSmartPunctuation(text)
+    summary.punctuationNormalized = normalized.replacements
+    text = normalized.text
   }
 
   if (options.removeEmoji) {
+    summary.emojiRemoved = countMatches(text, EMOJI_PATTERN)
     text = text.replace(EMOJI_PATTERN, '')
   }
 
   if (options.stripInvisibleChars) {
+    summary.invisibleCharsRemoved = countMatches(text, INVISIBLE_CHARACTERS)
     text = text.replace(INVISIBLE_CHARACTERS, '')
   }
 
-  return text
+  return {
+    text,
+    summary,
+  }
 }
 
 export function applyCustomRules(value, customRules = []) {

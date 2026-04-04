@@ -72,11 +72,21 @@ export function syncCleaningOptionsForModeChange(currentOptions, currentMode, ne
 }
 
 function resolveCleaningOptions(mode, options) {
-  return {
+  const resolvedOptions = {
     ...DEFAULT_CLEANING_OPTIONS,
     ...getModeDefaultCleaningOptions(mode),
     ...options,
   }
+
+  if (mode === 'plain' && resolvedOptions.aggressiveWriting) {
+    return {
+      ...resolvedOptions,
+      stripHtmlTags: true,
+      repairWrappedUrls: true,
+    }
+  }
+
+  return resolvedOptions
 }
 
 export function cleanText(value, mode = 'plain', options = getDefaultCleaningOptions(mode)) {
@@ -86,8 +96,8 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
   const cleaningOptions = resolveCleaningOptions(mode, optionValues)
   const modeDefinition = getModeDefinition(mode)
   const preprocessed = runModeStage(modeDefinition.id, 'preprocess', original, cleaningOptions)
-  const baseText = applySharedCleanup(preprocessed.text, cleaningOptions)
-  const modeResult = applyFormatMode(baseText, modeDefinition.id, cleaningOptions)
+  const sharedCleanupResult = applySharedCleanup(preprocessed.text, cleaningOptions)
+  const modeResult = applyFormatMode(sharedCleanupResult.text, modeDefinition.id, cleaningOptions)
   const urlResult = cleanUrlsInText(modeResult.text, cleaningOptions)
   const postprocessed = runModeStage(modeDefinition.id, 'postprocess', urlResult.text, cleaningOptions)
   const customRuleResult = applyCustomRules(postprocessed.text, customRules)
@@ -105,6 +115,7 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
     modeLabel: modeDefinition.label,
     modeDescription: modeDefinition.description,
     modeRules: modeDefinition.rules,
+    sharedSummary: sharedCleanupResult.summary,
     modeSummary: modeResult.summary,
     enabledRules: cleaningOptions,
     customRuleSummary: customRuleResult.summary,
