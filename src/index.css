@@ -226,6 +226,10 @@ html[data-theme='dark'] .pcLabel,
 html[data-theme='dark'] .pcSubLabel,
 html[data-theme='dark'] .pcQuickHint,
 html[data-theme='dark'] .pcSourcePresetAssist,
+html[data-theme='dark'] .pcProtectLabel,
+html[data-theme='dark'] .pcProtectHint,
+html[data-theme='dark'] .pcProtectMeta,
+html[data-theme='dark'] .pcEditorAssist,
 html[data-theme='dark'] .pcMenuTitle,
 html[data-theme='dark'] .pcEditorLabel,
 html[data-theme='dark'] .pcEditorLabelLive,
@@ -238,6 +242,8 @@ html[data-theme='dark'] .pcStatsGrid strong,
 html[data-theme='dark'] .pcStatsGrid span,
 html[data-theme='dark'] .pcPillToggle,
 html[data-theme='dark'] .pcSourcePresetButton,
+html[data-theme='dark'] .pcProtectAction,
+html[data-theme='dark'] .pcEditorActionButton,
 html[data-theme='dark'] .pcSecondaryButton,
 html[data-theme='dark'] .pcEditorIconButton,
 html[data-theme='dark'] .pcToggleMarkLabel,
@@ -1198,10 +1204,112 @@ html[data-theme='dark'] .pcSourcePresetButton span {
   margin-bottom: 0;
 }
 
+.pcProtectToolbar {
+  display: grid;
+  gap: 0.58rem;
+  margin-bottom: 0.72rem;
+  padding: 0.72rem;
+  border-radius: 12px;
+  border: 2px dashed var(--line);
+  background: var(--card-soft);
+}
+
+.pcProtectToolbarTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.pcProtectLabel {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #1f1f1f;
+}
+
+.pcProtectClear {
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: #141414;
+  padding: 0.24rem 0.62rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--line);
+}
+
+.pcProtectClear:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pcProtectHint,
+.pcProtectMeta {
+  margin: 0;
+  color: #2a2a2a;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.pcProtectActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.56rem;
+}
+
+.pcProtectAction {
+  text-align: left;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: #171717;
+  padding: 0.62rem 0.72rem;
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.pcProtectAction:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcProtectAction strong {
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.pcProtectAction span {
+  font-size: 0.72rem;
+  color: #2b2b2b;
+  line-height: 1.35;
+}
+
 .pcEditorCardActions {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.pcEditorActionButton {
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: #151515;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcEditorActionButton:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
 }
 
 .pcEditorIconButton {
@@ -1226,6 +1334,26 @@ html[data-theme='dark'] .pcSourcePresetButton span {
 .pcEditorIconButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+html[data-theme='dark'] .pcProtectAction span {
+  color: #d7dfd8;
+}
+
+.pcEditorAssist {
+  margin: 0.72rem 0 0;
+  color: #2b2b2b;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.pcProtectModal {
+  width: min(720px, 100%);
+}
+
+.pcProtectModalBody {
+  display: grid;
+  gap: 0.72rem;
 }
 
 .pcOutputState {
@@ -1640,6 +1768,11 @@ html[data-theme='dark'] .pcSourcePresetButton span {
   .pcEditors,
   .pcStatsGrid,
   .pcDiffGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pcProtectActions,
+  .pcSourcePresetGrid {
     grid-template-columns: 1fr;
   }
 

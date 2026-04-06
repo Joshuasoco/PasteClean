@@ -19,6 +19,12 @@ import {
   syncCleaningOptionsForModeChange,
 } from './features/cleaner/cleanText'
 import { getModeDefinition, getModes } from './features/cleaner/modes'
+import {
+  PROTECTED_REGION_ACTIONS,
+  countProtectedRegions,
+  summarizeProtectedRegions,
+  updateProtectedRegionsForInputChange,
+} from './features/cleaner/protectedRegions'
 import { getSourcePresetDefinition, getSourcePresets } from './features/cleaner/sourcePresets'
 import { usePasteHistory } from './hooks/usePasteHistory'
 import { useStoredState } from './hooks/useStoredState'
@@ -280,6 +286,7 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
   const items = [
     formatSummaryItem('Formatting removed', getSummaryStatValue(cleaningResult.modeSummary, 'Formatting markers removed')),
     formatSummaryItem('HTML tags removed', getSummaryStatValue(cleaningResult.modeSummary, 'HTML tags removed')),
+    formatSummaryItem('Protected regions', cleaningResult.protectedSummary?.totalRegions ?? 0),
     formatSummaryItem('Source fixes', cleaningResult.sourceSummary?.changesApplied ?? 0),
     formatSummaryItem('Entities decoded', cleaningResult.sharedSummary?.entitiesDecoded ?? 0),
     formatSummaryItem('Quotes normalized', cleaningResult.sharedSummary?.punctuationNormalized ?? 0),
@@ -312,6 +319,7 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
+  const [protectedRegions, setProtectedRegions] = useState([])
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions(DEFAULT_MODE))
   const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
   const [sourcePreset, setSourcePreset] = useStoredState(STORAGE_KEYS.sourcePreset, DEFAULT_SOURCE_PRESET)
@@ -325,12 +333,15 @@ function App() {
   const [activeMenu, setActiveMenu] = useState(null)
   const [activeLegalDoc, setActiveLegalDoc] = useState(null)
   const [activeModeGuide, setActiveModeGuide] = useState(null)
+  const [isProtectModalOpen, setIsProtectModalOpen] = useState(false)
   const [recoverState, setRecoverState] = useState(null)
   const [displayedResult, setDisplayedResult] = useState(null)
   const [draftRuleFind, setDraftRuleFind] = useState('')
   const [draftRuleReplace, setDraftRuleReplace] = useState('')
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null)
   const [isPwaInstalled, setIsPwaInstalled] = useState(false)
+  const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 })
+  const inputRef = useRef(null)
   const menuWrapRef = useRef(null)
   const settingsImportRef = useRef(null)
 
@@ -340,8 +351,14 @@ function App() {
   const isDarkMode = theme === 'dark'
 
   const result = useMemo(
-    () => cleanText(deferredInput, deferredMode, { ...cleaningOptions, customRules, sourcePreset: deferredSourcePreset }),
-    [cleaningOptions, customRules, deferredInput, deferredMode, deferredSourcePreset]
+    () =>
+      cleanText(deferredInput, deferredMode, {
+        ...cleaningOptions,
+        customRules,
+        sourcePreset: deferredSourcePreset,
+        protectedRegions,
+      }),
+    [cleaningOptions, customRules, deferredInput, deferredMode, deferredSourcePreset, protectedRegions]
   )
 
   useEffect(() => {
@@ -364,6 +381,7 @@ function App() {
     result,
     mode,
     sourcePreset,
+    protectedRegions,
     customRuleSummary: result.customRuleSummary,
   })
 
@@ -430,6 +448,11 @@ function App() {
 
     function handleEsc(event) {
       if (event.key === 'Escape') {
+        if (isProtectModalOpen) {
+          closeProtectModal()
+          return
+        }
+
         if (activeModeGuide) {
           setActiveModeGuide(null)
           return
@@ -451,7 +474,7 @@ function App() {
       window.removeEventListener('mousedown', handleClickAway)
       window.removeEventListener('keydown', handleEsc)
     }
-  }, [activeLegalDoc, activeModeGuide])
+  }, [activeLegalDoc, activeModeGuide, isProtectModalOpen])
 
   function openLegalDoc(docType) {
     setActiveMenu(null)
@@ -470,11 +493,30 @@ function App() {
     setActiveModeGuide(null)
   }
 
+  function syncInputSelection() {
+    const inputElement = inputRef.current
+
+    setInputSelection({
+      start: inputElement?.selectionStart ?? 0,
+      end: inputElement?.selectionEnd ?? 0,
+    })
+  }
+
+  function openProtectModal() {
+    syncInputSelection()
+    setIsProtectModalOpen(true)
+  }
+
+  function closeProtectModal() {
+    setIsProtectModalOpen(false)
+  }
+
   function createRecoverSnapshot() {
     return {
       input,
       mode,
       sourcePreset,
+      protectedRegions,
       cleaningOptions,
       customRules,
       history,
@@ -494,6 +536,7 @@ function App() {
 
       startTransition(() => {
         setInput(pastedText)
+        setProtectedRegions([])
       })
       setToast('Pasted from clipboard.')
       setLastAction('Pasted from clipboard.')
@@ -614,11 +657,83 @@ function App() {
     )
   }
 
+  function handleProtectSelection(regionType) {
+    const selectionStart = inputSelection.start
+    const selectionEnd = inputSelection.end
+
+    if (selectionStart === selectionEnd) {
+      setToast('Select text in Raw Input before adding a protection region.')
+      setLastAction('Protected region was not added.')
+      return
+    }
+
+    const overlapsExistingRegion = protectedRegions.some(
+      (region) => selectionStart < region.end && selectionEnd > region.start
+    )
+
+    if (overlapsExistingRegion) {
+      setToast('That selection overlaps an existing protected region. Clear it first or choose a different range.')
+      setLastAction('Protected region was not added.')
+      return
+    }
+
+    const selectedText = input.slice(selectionStart, selectionEnd)
+    const nextRegion = {
+      id: createRuleId(),
+      type: regionType,
+      start: selectionStart,
+      end: selectionEnd,
+    }
+
+    setRecoverState(createRecoverSnapshot())
+    setProtectedRegions((current) => [...current, nextRegion].sort((left, right) => left.start - right.start))
+    closeProtectModal()
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus()
+      inputRef.current?.setSelectionRange(selectionStart, selectionStart + selectedText.length)
+    })
+    setToast('Protected region added.')
+    setLastAction('Protected region added.')
+  }
+
+  function handleClearProtectedRegions() {
+    if (protectedRegions.length === 0) {
+      setToast('No protected regions are active.')
+      setLastAction('No protected regions to clear.')
+      return
+    }
+
+    setRecoverState(createRecoverSnapshot())
+    setProtectedRegions([])
+    closeProtectModal()
+    setToast('Protected regions removed.')
+    setLastAction('Protected regions removed.')
+  }
+
+  function handleInputChange(nextValue) {
+    const regionUpdate = updateProtectedRegionsForInputChange(input, nextValue, protectedRegions)
+
+    startTransition(() => {
+      setInput(nextValue)
+      setProtectedRegions(regionUpdate.regions)
+    })
+
+    if (regionUpdate.removedRegions > 0) {
+      const message =
+        regionUpdate.removedRegions === 1
+          ? '1 protected region was cleared because that text was edited.'
+          : `${regionUpdate.removedRegions} protected regions were cleared because that text was edited.`
+      setToast(message)
+      setLastAction('Protected regions updated after edit.')
+    }
+  }
+
   function handleLoadSample() {
     setRecoverState(createRecoverSnapshot())
     const sample = getModeDefinition(mode).sample
     startTransition(() => {
       setInput(sample)
+      setProtectedRegions([])
     })
     setToast('Sample loaded for current mode.')
     setLastAction('Sample loaded for current mode.')
@@ -635,6 +750,7 @@ function App() {
       setInput(entry.input)
       setMode(entry.mode || DEFAULT_MODE)
       setSourcePreset(entry.sourcePreset || DEFAULT_SOURCE_PRESET)
+      setProtectedRegions(entry.protectedRegions ?? [])
     })
     setToast('History entry restored.')
     setLastAction('History entry restored.')
@@ -701,6 +817,7 @@ function App() {
       setInput(recoverState.input)
       setMode(recoverState.mode)
       setSourcePreset(recoverState.sourcePreset ?? DEFAULT_SOURCE_PRESET)
+      setProtectedRegions(recoverState.protectedRegions ?? [])
       setCleaningOptions(recoverState.cleaningOptions)
       setCustomRules(recoverState.customRules ?? [])
       setHistory(recoverState.history)
@@ -843,6 +960,7 @@ function App() {
     setRecoverState(createRecoverSnapshot())
     startTransition(() => {
       setInput('')
+      setProtectedRegions([])
       setDisplayedResult(null)
     })
     setToast('Input cleared.')
@@ -900,6 +1018,18 @@ function App() {
       : `${currentSourcePresetDefinition.description}${
           currentSourcePresetSuggestedModeLabel ? ` Best paired with ${currentSourcePresetSuggestedModeLabel} mode.` : ''
         }`
+  const protectedRegionCount = countProtectedRegions(protectedRegions)
+  const protectedRegionSummary = summarizeProtectedRegions(protectedRegions)
+  const protectedRegionSummaryParts = [
+    protectedRegionSummary.skipRegions ? `${protectedRegionSummary.skipRegions} do not clean` : null,
+    protectedRegionSummary.exactRegions ? `${protectedRegionSummary.exactRegions} exact` : null,
+    protectedRegionSummary.linkRegions ? `${protectedRegionSummary.linkRegions} links only` : null,
+    protectedRegionSummary.codeRegions ? `${protectedRegionSummary.codeRegions} code only` : null,
+  ].filter(Boolean)
+  const protectedRegionAssistText =
+    protectedRegionCount === 0
+      ? 'Selections stay invisible in Raw Input and are tracked only in this workspace.'
+      : `Active now: ${protectedRegionSummaryParts.join(', ')}. Selections stay invisible in Raw Input.`
   const modeSafeToggles = getModeSafeToggles(mode)
   const modeWarnings = getModeWarnings(mode, cleaningOptions)
   const modeControlsSummary =
@@ -1072,6 +1202,7 @@ function App() {
                         {entry.sourcePresetLabel && entry.sourcePresetLabel !== 'No preset'
                           ? ` / ${entry.sourcePresetLabel}`
                           : ''}
+                        {entry.protectedRegionCount ? ` / ${entry.protectedRegionCount} locks` : ''}
                       </strong>
                       <span>{entry.input.slice(0, 44) || 'Empty paste'}</span>
                     </button>
@@ -1479,6 +1610,13 @@ function App() {
                 <div className="pcEditorCardActions">
                   <button
                     type="button"
+                    className="pcEditorActionButton"
+                    onClick={openProtectModal}
+                  >
+                    Protect
+                  </button>
+                  <button
+                    type="button"
                     className="pcEditorIconButton"
                     aria-label="Paste from clipboard"
                     title="Paste from clipboard"
@@ -1500,12 +1638,17 @@ function App() {
                 </div>
               </div>
               <textarea
+                ref={inputRef}
                 className="pcEditor"
                 value={input}
-                onChange={(event) => setInput(event.target.value)}
+                onChange={(event) => handleInputChange(event.target.value)}
+                onSelect={syncInputSelection}
+                onKeyUp={syncInputSelection}
+                onClick={syncInputSelection}
                 placeholder="Start typing or paste content here..."
                 spellCheck={false}
               />
+              <p className="pcEditorAssist">{protectedRegionCount} protection{protectedRegionCount === 1 ? '' : 's'} active. {protectedRegionAssistText}</p>
             </article>
 
             <article className="pcEditorCard pcEditorCardPreview">
@@ -1634,6 +1777,63 @@ function App() {
       {toast ? (
         <div className="pcToast" role="status" aria-live="polite" aria-atomic="true">
           {toast}
+        </div>
+      ) : null}
+
+      {isProtectModalOpen ? (
+        <div
+          className="pcLegalBackdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeProtectModal()
+            }
+          }}
+        >
+          <section className="pcLegalModal pcProtectModal" role="dialog" aria-modal="true" aria-labelledby="pcProtectModalTitle">
+            <div className="pcLegalTop">
+              <h2 id="pcProtectModalTitle">Protect Selection</h2>
+              <button type="button" className="pcLegalClose" onClick={closeProtectModal}>
+                Close
+              </button>
+            </div>
+            <p className="pcLegalUpdated">
+              {inputSelection.start === inputSelection.end
+                ? 'Select text in Raw Input, then choose a protection type.'
+                : `Selected ${inputSelection.end - inputSelection.start} characters.`}
+            </p>
+
+            <div className="pcProtectModalBody">
+              <div className="pcProtectToolbarTop">
+                <p className="pcProtectLabel">Protection Types</p>
+                <button
+                  type="button"
+                  className="pcProtectClear"
+                  onClick={handleClearProtectedRegions}
+                  disabled={protectedRegionCount === 0}
+                >
+                  Clear all
+                </button>
+              </div>
+              <p className="pcProtectHint">
+                Select part of the input, then choose how strongly PasteClean should protect it. {protectedRegionCount} active.
+              </p>
+              <div className="pcProtectActions">
+                {PROTECTED_REGION_ACTIONS.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    className="pcProtectAction"
+                    onClick={() => handleProtectSelection(action.id)}
+                  >
+                    <strong>{action.label}</strong>
+                    <span>{action.description}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="pcProtectMeta">{protectedRegionAssistText}</p>
+            </div>
+          </section>
         </div>
       ) : null}
 

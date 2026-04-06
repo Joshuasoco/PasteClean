@@ -171,6 +171,59 @@ describe('cleanText', () => {
     expect(result.sourceSummary.changesApplied).toBeGreaterThan(0)
   })
 
+  it('lets do-not-clean regions bypass shared cleanup while still allowing custom rules', () => {
+    const input = 'Before [[pc:skip]]<p>Keep me</p> foo[[/pc]] after'
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      stripHtmlTags: true,
+      customRules: [{ find: 'foo', replace: 'bar', enabled: true }],
+    })
+
+    expect(result.cleanedText).toBe('Before <p>Keep me</p> bar after')
+    expect(result.protectedSummary.skipRegions).toBe(1)
+  })
+
+  it('lets exact regions bypass both cleanup and custom rules', () => {
+    const input = 'Before [[pc:exact]]<p>Keep me</p> foo[[/pc]] after'
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      stripHtmlTags: true,
+      customRules: [{ find: 'foo', replace: 'bar', enabled: true }],
+    })
+
+    expect(result.cleanedText).toBe('Before <p>Keep me</p> foo after')
+    expect(result.protectedSummary.exactRegions).toBe(1)
+  })
+
+  it('lets preserve-links regions keep urls exact while surrounding words are still cleaned', () => {
+    const input = 'Use [[pc:links]]“docs” at https://example.com/A%20B?utm_source=test&keep=1[[/pc]] soon.'
+    const result = cleanText(input, 'plain', getDefaultCleaningOptions('plain'))
+
+    expect(result.cleanedText).toBe('Use "docs" at https://example.com/A%20B?utm_source=test&keep=1 soon.')
+    expect(result.protectedSummary.linkRegions).toBe(1)
+  })
+
+  it('lets preserve-code regions use code cleanup inside writing mode', () => {
+    const input = 'Intro\n[[pc:code]]1 | const docs = "https://example.com/A%20B?utm_source=test&keep=1";[[/pc]]\nOutro'
+    const result = cleanText(input, 'plain', getDefaultCleaningOptions('plain'))
+
+    expect(result.cleanedText).toBe('Intro\nconst docs = "https://example.com/A%20B?utm_source=test&keep=1";\nOutro')
+    expect(result.protectedSummary.codeRegions).toBe(1)
+  })
+
+  it('supports structured protected-region ranges without adding markers to the raw input', () => {
+    const input = 'Before <p>Keep me</p> foo after'
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      stripHtmlTags: true,
+      protectedRegions: [{ type: 'skip', start: 7, end: 25 }],
+      customRules: [{ find: 'foo', replace: 'bar', enabled: true }],
+    })
+
+    expect(result.cleanedText).toBe('Before <p>Keep me</p> bar after')
+    expect(result.protectedSummary.skipRegions).toBe(1)
+  })
+
   it('keeps code-safe defaults from rewriting single-line string literal content', () => {
     const input = 'const label = "&amp; https://example.com/A%20B?utm_source=test&keep=1";'
     const result = cleanText(input, 'code', getDefaultCleaningOptions('code'))

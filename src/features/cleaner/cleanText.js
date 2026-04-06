@@ -5,6 +5,7 @@ import {
   runModeStage,
   syncModeControlledOptions,
 } from './modes'
+import { extractProtectedRegions, restoreProtectedRegions } from './protectedRegions'
 import { applySourcePreset, getSourcePresetDefinition } from './sourcePresets'
 import { applyCustomRules, applySharedCleanup, countLines } from './sharedTransforms'
 import { cleanUrlsInText } from './urlCleaner'
@@ -94,10 +95,27 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
   const original = value ?? ''
   const customRules = Array.isArray(options?.customRules) ? options.customRules : []
   const sourcePresetId = typeof options?.sourcePreset === 'string' ? options.sourcePreset : 'none'
-  const { customRules: ignoredCustomRules, sourcePreset: ignoredSourcePreset, ...optionValues } = options ?? {}
+  const structuredProtectedRegions = Array.isArray(options?.protectedRegions) ? options.protectedRegions : []
+  const {
+    customRules: ignoredCustomRules,
+    sourcePreset: ignoredSourcePreset,
+    protectedRegions: ignoredProtectedRegions,
+    ...optionValues
+  } = options ?? {}
   const cleaningOptions = resolveCleaningOptions(mode, optionValues)
   const modeDefinition = getModeDefinition(mode)
-  const sourceResult = applySourcePreset(original, sourcePresetId, {
+  const protectedRegions = extractProtectedRegions(original, {
+    regions: structuredProtectedRegions,
+    resolveCodeRegion: (regionText) =>
+      cleanText(regionText, 'code', {
+        ...getDefaultCleaningOptions('code'),
+        cleanWhitespace: cleaningOptions.cleanWhitespace,
+        stripInvisibleChars: cleaningOptions.stripInvisibleChars,
+        customRules: [],
+        sourcePreset: 'none',
+      }).cleanedText,
+  })
+  const sourceResult = applySourcePreset(protectedRegions.text, sourcePresetId, {
     mode: modeDefinition.id,
     options: cleaningOptions,
   })
@@ -107,8 +125,9 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
   const modeResult = applyFormatMode(sharedCleanupResult.text, modeDefinition.id, cleaningOptions)
   const urlResult = cleanUrlsInText(modeResult.text, cleaningOptions)
   const postprocessed = runModeStage(modeDefinition.id, 'postprocess', urlResult.text, cleaningOptions)
-  const customRuleResult = applyCustomRules(postprocessed.text, customRules)
-  const cleanedText = customRuleResult.text
+  const beforeCustomRestore = restoreProtectedRegions(postprocessed.text, protectedRegions.beforeCustom)
+  const customRuleResult = applyCustomRules(beforeCustomRestore, customRules)
+  const cleanedText = restoreProtectedRegions(customRuleResult.text, protectedRegions.afterCustom)
 
   return {
     cleanedText,
@@ -127,6 +146,7 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
     sourcePresetDescription: sourcePreset.description,
     sourcePresetSuggestedMode: sourcePreset.suggestedMode,
     sourceSummary: sourceResult.summary,
+    protectedSummary: protectedRegions.summary,
     sharedSummary: sharedCleanupResult.summary,
     modeSummary: modeResult.summary,
     enabledRules: cleaningOptions,
