@@ -23,6 +23,7 @@ function buildTxt(history) {
         `Entry ${index + 1}`,
         `Saved: ${entry.savedAt}`,
         `Mode: ${entry.modeLabel}`,
+        `Source preset: ${entry.sourcePresetLabel ?? 'No preset'}`,
         `URLs changed: ${entry.urlChanges}`,
         `Custom replacements: ${entry.customReplacements}`,
         'Input:',
@@ -35,11 +36,12 @@ function buildTxt(history) {
 }
 
 function buildCsv(history) {
-  const header = ['saved_at', 'mode', 'url_changes', 'custom_replacements', 'input', 'cleaned_text']
+  const header = ['saved_at', 'mode', 'source_preset', 'url_changes', 'custom_replacements', 'input', 'cleaned_text']
   const rows = history.map((entry) =>
     [
       escapeCsvValue(entry.savedAt),
       escapeCsvValue(entry.modeLabel),
+      escapeCsvValue(entry.sourcePresetLabel ?? 'No preset'),
       escapeCsvValue(entry.urlChanges),
       escapeCsvValue(entry.customReplacements),
       escapeCsvValue(entry.input),

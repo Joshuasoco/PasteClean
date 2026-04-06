@@ -19,6 +19,7 @@ import {
   syncCleaningOptionsForModeChange,
 } from './features/cleaner/cleanText'
 import { getModeDefinition, getModes } from './features/cleaner/modes'
+import { getSourcePresetDefinition, getSourcePresets } from './features/cleaner/sourcePresets'
 import { usePasteHistory } from './hooks/usePasteHistory'
 import { useStoredState } from './hooks/useStoredState'
 import { buildTextDiff } from './utils/buildTextDiff'
@@ -27,7 +28,9 @@ import { parseSettingsBackup, serializeSettingsBackup } from './utils/settingsBa
 import { STORAGE_KEYS } from './utils/storageKeys'
 
 const MODE_OPTIONS = getModes()
+const SOURCE_PRESET_OPTIONS = getSourcePresets()
 const DEFAULT_MODE = 'plain'
+const DEFAULT_SOURCE_PRESET = 'none'
 const LEGAL_CONTENT = {
   privacy: {
     title: 'Privacy Policy',
@@ -277,6 +280,7 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
   const items = [
     formatSummaryItem('Formatting removed', getSummaryStatValue(cleaningResult.modeSummary, 'Formatting markers removed')),
     formatSummaryItem('HTML tags removed', getSummaryStatValue(cleaningResult.modeSummary, 'HTML tags removed')),
+    formatSummaryItem('Source fixes', cleaningResult.sourceSummary?.changesApplied ?? 0),
     formatSummaryItem('Entities decoded', cleaningResult.sharedSummary?.entitiesDecoded ?? 0),
     formatSummaryItem('Quotes normalized', cleaningResult.sharedSummary?.punctuationNormalized ?? 0),
     formatSummaryItem('Invisible characters removed', cleaningResult.sharedSummary?.invisibleCharsRemoved ?? 0),
@@ -291,7 +295,17 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
     headline: 'Changes made',
     detail: `${diffStats.removedCount} removals, ${diffStats.addedCount} additions`,
     items: items.length > 0 ? items.slice(0, 6) : ['Text updated for current rules.'],
-    note: '',
+    note:
+      cleaningResult.sourcePreset !== DEFAULT_SOURCE_PRESET
+        ? `${cleaningResult.sourcePresetLabel} preset active${
+            cleaningResult.sourcePresetSuggestedMode && cleaningResult.sourcePresetSuggestedMode !== cleaningResult.mode
+              ? `. Best paired with ${getModeLabel(
+                  cleaningResult.sourcePresetSuggestedMode,
+                  getModeDefinition(cleaningResult.sourcePresetSuggestedMode).label
+                )} mode.`
+              : '.'
+          }`
+        : '',
   }
 }
 
@@ -300,6 +314,7 @@ function App() {
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions(DEFAULT_MODE))
   const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
+  const [sourcePreset, setSourcePreset] = useStoredState(STORAGE_KEYS.sourcePreset, DEFAULT_SOURCE_PRESET)
   const [theme, setTheme] = useStoredState(STORAGE_KEYS.theme, 'light')
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('')
@@ -321,11 +336,12 @@ function App() {
 
   const deferredInput = useDeferredValue(input)
   const deferredMode = useDeferredValue(mode)
+  const deferredSourcePreset = useDeferredValue(sourcePreset)
   const isDarkMode = theme === 'dark'
 
   const result = useMemo(
-    () => cleanText(deferredInput, deferredMode, { ...cleaningOptions, customRules }),
-    [cleaningOptions, customRules, deferredInput, deferredMode]
+    () => cleanText(deferredInput, deferredMode, { ...cleaningOptions, customRules, sourcePreset: deferredSourcePreset }),
+    [cleaningOptions, customRules, deferredInput, deferredMode, deferredSourcePreset]
   )
 
   useEffect(() => {
@@ -347,6 +363,7 @@ function App() {
     input,
     result,
     mode,
+    sourcePreset,
     customRuleSummary: result.customRuleSummary,
   })
 
@@ -451,6 +468,17 @@ function App() {
 
   function closeModeGuide() {
     setActiveModeGuide(null)
+  }
+
+  function createRecoverSnapshot() {
+    return {
+      input,
+      mode,
+      sourcePreset,
+      cleaningOptions,
+      customRules,
+      history,
+    }
   }
 
   async function pasteFromClipboard() {
@@ -565,8 +593,29 @@ function App() {
     })
   }
 
+  function handleSourcePresetChange(nextSourcePreset) {
+    if (nextSourcePreset === sourcePreset) {
+      return
+    }
+
+    const nextSourcePresetDefinition = getSourcePresetDefinition(nextSourcePreset)
+
+    setRecoverState(createRecoverSnapshot())
+    setSourcePreset(nextSourcePreset)
+    setToast(
+      nextSourcePreset === DEFAULT_SOURCE_PRESET
+        ? 'Source preset cleared.'
+        : `${nextSourcePresetDefinition.label} preset is active.`
+    )
+    setLastAction(
+      nextSourcePreset === DEFAULT_SOURCE_PRESET
+        ? 'Source preset cleared.'
+        : `${nextSourcePresetDefinition.label} preset selected.`
+    )
+  }
+
   function handleLoadSample() {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     const sample = getModeDefinition(mode).sample
     startTransition(() => {
       setInput(sample)
@@ -581,10 +630,11 @@ function App() {
   }
 
   function handleRestoreHistory(entry) {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     startTransition(() => {
       setInput(entry.input)
       setMode(entry.mode || DEFAULT_MODE)
+      setSourcePreset(entry.sourcePreset || DEFAULT_SOURCE_PRESET)
     })
     setToast('History entry restored.')
     setLastAction('History entry restored.')
@@ -592,24 +642,26 @@ function App() {
   }
 
   function handleResetSettings() {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     setCleaningOptions(getDefaultCleaningOptions(mode))
+    setSourcePreset(DEFAULT_SOURCE_PRESET)
     setToast('Settings reset to default.')
     setLastAction('Settings reset to default.')
     setActiveMenu(null)
   }
 
   function handleResetCustomRules() {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     setCustomRules([])
     setToast('Custom rules cleared.')
     setLastAction('Custom rules cleared.')
   }
 
   function handleClearLocalData() {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     clearHistory()
     setCleaningOptions(getDefaultCleaningOptions(mode))
+    setSourcePreset(DEFAULT_SOURCE_PRESET)
     setCustomRules([])
     setToast('Local history cleared.')
     setLastAction('Local history cleared.')
@@ -648,6 +700,7 @@ function App() {
     startTransition(() => {
       setInput(recoverState.input)
       setMode(recoverState.mode)
+      setSourcePreset(recoverState.sourcePreset ?? DEFAULT_SOURCE_PRESET)
       setCleaningOptions(recoverState.cleaningOptions)
       setCustomRules(recoverState.customRules ?? [])
       setHistory(recoverState.history)
@@ -679,7 +732,7 @@ function App() {
   }
 
   function handleExportSettingsBackup() {
-    const backupText = serializeSettingsBackup({ cleaningOptions, customRules })
+    const backupText = serializeSettingsBackup({ cleaningOptions, sourcePreset, customRules })
     const blob = new Blob([backupText], { type: 'application/json;charset=utf-8' })
     const objectUrl = URL.createObjectURL(blob)
     const timestamp = new Date().toISOString().slice(0, 19).replaceAll(':', '-')
@@ -712,8 +765,9 @@ function App() {
       const rawText = await file.text()
       const imported = parseSettingsBackup(rawText, getDefaultCleaningOptions(mode))
 
-      setRecoverState({ input, mode, cleaningOptions, customRules, history })
+      setRecoverState(createRecoverSnapshot())
       setCleaningOptions(imported.cleaningOptions)
+      setSourcePreset(imported.sourcePreset || DEFAULT_SOURCE_PRESET)
       setCustomRules(
         imported.customRules.map((rule) => ({
           id: rule.id || createRuleId(),
@@ -744,7 +798,7 @@ function App() {
       return
     }
 
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     setCustomRules((current) => [
       {
         id: createRuleId(),
@@ -761,21 +815,21 @@ function App() {
   }
 
   function handleUpdateCustomRule(ruleId, field, value) {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     setCustomRules((current) =>
       current.map((rule) => (rule.id === ruleId ? { ...rule, [field]: value } : rule))
     )
   }
 
   function handleToggleCustomRule(ruleId) {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     setCustomRules((current) =>
       current.map((rule) => (rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule))
     )
   }
 
   function handleDeleteCustomRule(ruleId) {
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     setCustomRules((current) => current.filter((rule) => rule.id !== ruleId))
     setToast('Custom rule deleted.')
     setLastAction('Custom rule deleted.')
@@ -786,7 +840,7 @@ function App() {
       return
     }
 
-    setRecoverState({ input, mode, cleaningOptions, customRules, history })
+    setRecoverState(createRecoverSnapshot())
     startTransition(() => {
       setInput('')
       setDisplayedResult(null)
@@ -832,6 +886,20 @@ function App() {
     Boolean(cleaningOptions.decodeReadableUrls)
   const currentModeDefinition = getModeDefinition(mode)
   const currentModeLabel = getModeLabel(mode, currentModeDefinition.label)
+  const currentSourcePresetDefinition = getSourcePresetDefinition(sourcePreset)
+  const currentSourcePresetSuggestedModeLabel =
+    currentSourcePresetDefinition.suggestedMode && currentSourcePresetDefinition.suggestedMode !== mode
+      ? getModeLabel(
+          currentSourcePresetDefinition.suggestedMode,
+          getModeDefinition(currentSourcePresetDefinition.suggestedMode).label
+        )
+      : ''
+  const sourcePresetAssistText =
+    sourcePreset === DEFAULT_SOURCE_PRESET
+      ? 'Tell PasteClean where the text came from when you want source-specific cleanup.'
+      : `${currentSourcePresetDefinition.description}${
+          currentSourcePresetSuggestedModeLabel ? ` Best paired with ${currentSourcePresetSuggestedModeLabel} mode.` : ''
+        }`
   const modeSafeToggles = getModeSafeToggles(mode)
   const modeWarnings = getModeWarnings(mode, cleaningOptions)
   const modeControlsSummary =
@@ -999,7 +1067,12 @@ function App() {
                       className="pcMenuItem"
                       onClick={() => handleRestoreHistory(entry)}
                     >
-                      <strong>{entry.modeLabel}</strong>
+                      <strong>
+                        {entry.modeLabel}
+                        {entry.sourcePresetLabel && entry.sourcePresetLabel !== 'No preset'
+                          ? ` / ${entry.sourcePresetLabel}`
+                          : ''}
+                      </strong>
                       <span>{entry.input.slice(0, 44) || 'Empty paste'}</span>
                     </button>
                   ))}
@@ -1053,6 +1126,25 @@ function App() {
                 </div>
                 <p className="pcMenuHint pcMenuHintInline">
                   <strong>{currentModeLabel}:</strong> {currentModeDefinition.description}
+                </p>
+              </div>
+
+              <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">Source preset</p>
+                <div className="pcMenuPills">
+                  {SOURCE_PRESET_OPTIONS.map((preset) => (
+                    <button
+                      key={`source-${preset.id}`}
+                      type="button"
+                      className={`pcMenuPill ${preset.id === sourcePreset ? 'pcMenuPillActive' : ''}`}
+                      onClick={() => handleSourcePresetChange(preset.id)}
+                    >
+                      {preset.shortLabel}
+                    </button>
+                  ))}
+                </div>
+                <p className="pcMenuHint pcMenuHintInline">
+                  <strong>{currentSourcePresetDefinition.label}:</strong> {sourcePresetAssistText}
                 </p>
               </div>
 
@@ -1292,6 +1384,23 @@ function App() {
                 <span className="pcPillState">{stripUrlsEnabled ? 'On' : 'Off'}</span>
               </button>
             </div>
+
+            <p className="pcSubLabel">Source Preset</p>
+            <p className="pcQuickHint">Tell PasteClean where this copy came from.</p>
+            <div className="pcSourcePresetGrid">
+              {SOURCE_PRESET_OPTIONS.map((preset) => (
+                <button
+                  key={`quick-source-${preset.id}`}
+                  type="button"
+                  className={`pcSourcePresetButton ${preset.id === sourcePreset ? 'pcSourcePresetButtonActive' : ''}`}
+                  onClick={() => handleSourcePresetChange(preset.id)}
+                >
+                  <strong>{preset.shortLabel}</strong>
+                  <span>{preset.id === DEFAULT_SOURCE_PRESET ? 'Mode-only cleanup' : preset.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="pcSourcePresetAssist">{sourcePresetAssistText}</p>
           </article>
 
           <article className="pcCard">
@@ -1433,6 +1542,7 @@ function App() {
                       </span>
                     ))}
                   </div>
+                  {outputChangeSummary.note ? <p className="pcOutputChangesNote">{outputChangeSummary.note}</p> : null}
                 </div>
               ) : null}
               {hasDisplayedOutput ? (

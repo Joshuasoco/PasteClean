@@ -23,7 +23,7 @@ function sanitizeCustomRules(customRules) {
     .filter(Boolean)
 }
 
-export function serializeSettingsBackup({ cleaningOptions, customRules, createdAt = new Date() }) {
+export function serializeSettingsBackup({ cleaningOptions, sourcePreset = 'none', customRules, createdAt = new Date() }) {
   const exportedAt = createdAt.toISOString()
   const payload = {
     app: 'PasteClean',
@@ -31,6 +31,7 @@ export function serializeSettingsBackup({ cleaningOptions, customRules, createdA
     version: SETTINGS_BACKUP_VERSION,
     exportedAt,
     cleaningOptions: { ...(cleaningOptions ?? {}) },
+    sourcePreset: typeof sourcePreset === 'string' && sourcePreset ? sourcePreset : 'none',
     customRules: sanitizeCustomRules(customRules),
   }
 
@@ -67,6 +68,7 @@ export function parseSettingsBackup(rawValue, defaultCleaningOptions) {
 
   return {
     cleaningOptions: nextCleaningOptions,
+    sourcePreset: typeof parsed.sourcePreset === 'string' && parsed.sourcePreset ? parsed.sourcePreset : 'none',
     customRules: sanitizeCustomRules(parsed.customRules),
   }
 }

@@ -5,20 +5,22 @@ import { STORAGE_KEYS } from '../utils/storageKeys'
 const HISTORY_LIMIT = 20
 const SAVE_DELAY_MS = 900
 
-function createHistoryEntry({ input, result, mode, customRuleSummary }) {
+function createHistoryEntry({ input, result, mode, sourcePreset, customRuleSummary }) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     input,
     cleanedText: result.cleanedText,
     mode,
     modeLabel: result.modeLabel,
+    sourcePreset,
+    sourcePresetLabel: result.sourcePresetLabel,
     savedAt: new Date().toISOString(),
     urlChanges: result.urlSummary.urlsChanged,
     customReplacements: customRuleSummary.replacementsMade,
   }
 }
 
-export function usePasteHistory({ input, result, mode, customRuleSummary }) {
+export function usePasteHistory({ input, result, mode, sourcePreset, customRuleSummary }) {
   const [history, setHistory] = useStoredState(STORAGE_KEYS.history, [])
   const [isSavingHistory, setIsSavingHistory] = useState(false)
   const hasInitialized = useRef(false)
@@ -45,14 +47,20 @@ export function usePasteHistory({ input, result, mode, customRuleSummary }) {
           newestEntry.input === input &&
           newestEntry.cleanedText === result.cleanedText &&
           newestEntry.mode === mode &&
+          newestEntry.sourcePreset === sourcePreset &&
           newestEntry.customReplacements === customRuleSummary.replacementsMade
         ) {
           return currentHistory
         }
 
-        const nextEntry = createHistoryEntry({ input, result, mode, customRuleSummary })
+        const nextEntry = createHistoryEntry({ input, result, mode, sourcePreset, customRuleSummary })
         const dedupedHistory = currentHistory.filter(
-          (entry) => entry.input !== nextEntry.input
+          (entry) =>
+            !(
+              entry.input === nextEntry.input &&
+              entry.mode === nextEntry.mode &&
+              (entry.sourcePreset ?? 'none') === nextEntry.sourcePreset
+            )
         )
 
         return [nextEntry, ...dedupedHistory].slice(0, HISTORY_LIMIT)
@@ -61,7 +69,7 @@ export function usePasteHistory({ input, result, mode, customRuleSummary }) {
     }, SAVE_DELAY_MS)
 
     return () => window.clearTimeout(timeoutId)
-  }, [customRuleSummary, input, mode, result, setHistory])
+  }, [customRuleSummary, input, mode, result, setHistory, sourcePreset])
 
   function clearHistory() {
     setHistory([])

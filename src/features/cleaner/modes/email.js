@@ -135,7 +135,7 @@ function detectReplyBoundary(lines, startIndex) {
   return null
 }
 
-function transform(text, options = {}) {
+export function stripQuotedEmailChain(text, options = {}) {
   const lines = text.split('\n')
   const keptLines = []
   let quotedLinesRemoved = 0
@@ -177,12 +177,26 @@ function transform(text, options = {}) {
   return {
     text: cleaned,
     summary: {
+      quotedLinesRemoved,
+      headerLinesRemoved,
+      removedHeaderChain,
+      detectedFormat,
+    },
+  }
+}
+
+function transform(text, options = {}) {
+  const emailCleanup = stripQuotedEmailChain(text, options)
+
+  return {
+    text: emailCleanup.text,
+    summary: {
       title: 'Email cleanup',
       stats: [
-        { label: 'Quoted lines removed', value: quotedLinesRemoved },
-        { label: 'Header lines removed', value: headerLinesRemoved },
-        { label: 'Reply chain removed', value: removedHeaderChain ? 'Yes' : 'No' },
-        { label: 'Reply format detected', value: detectedFormat },
+        { label: 'Quoted lines removed', value: emailCleanup.summary.quotedLinesRemoved },
+        { label: 'Header lines removed', value: emailCleanup.summary.headerLinesRemoved },
+        { label: 'Reply chain removed', value: emailCleanup.summary.removedHeaderChain ? 'Yes' : 'No' },
+        { label: 'Reply format detected', value: emailCleanup.summary.detectedFormat },
       ],
       highlights: [
         options.removeQuotedEmailChain === false

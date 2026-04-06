@@ -5,6 +5,7 @@ import {
   runModeStage,
   syncModeControlledOptions,
 } from './modes'
+import { applySourcePreset, getSourcePresetDefinition } from './sourcePresets'
 import { applyCustomRules, applySharedCleanup, countLines } from './sharedTransforms'
 import { cleanUrlsInText } from './urlCleaner'
 
@@ -92,10 +93,16 @@ function resolveCleaningOptions(mode, options) {
 export function cleanText(value, mode = 'plain', options = getDefaultCleaningOptions(mode)) {
   const original = value ?? ''
   const customRules = Array.isArray(options?.customRules) ? options.customRules : []
-  const { customRules: ignoredCustomRules, ...optionValues } = options ?? {}
+  const sourcePresetId = typeof options?.sourcePreset === 'string' ? options.sourcePreset : 'none'
+  const { customRules: ignoredCustomRules, sourcePreset: ignoredSourcePreset, ...optionValues } = options ?? {}
   const cleaningOptions = resolveCleaningOptions(mode, optionValues)
   const modeDefinition = getModeDefinition(mode)
-  const preprocessed = runModeStage(modeDefinition.id, 'preprocess', original, cleaningOptions)
+  const sourceResult = applySourcePreset(original, sourcePresetId, {
+    mode: modeDefinition.id,
+    options: cleaningOptions,
+  })
+  const sourcePreset = getSourcePresetDefinition(sourcePresetId)
+  const preprocessed = runModeStage(modeDefinition.id, 'preprocess', sourceResult.text, cleaningOptions)
   const sharedCleanupResult = applySharedCleanup(preprocessed.text, cleaningOptions)
   const modeResult = applyFormatMode(sharedCleanupResult.text, modeDefinition.id, cleaningOptions)
   const urlResult = cleanUrlsInText(modeResult.text, cleaningOptions)
@@ -115,6 +122,11 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
     modeLabel: modeDefinition.label,
     modeDescription: modeDefinition.description,
     modeRules: modeDefinition.rules,
+    sourcePreset: sourcePreset.id,
+    sourcePresetLabel: sourcePreset.label,
+    sourcePresetDescription: sourcePreset.description,
+    sourcePresetSuggestedMode: sourcePreset.suggestedMode,
+    sourceSummary: sourceResult.summary,
     sharedSummary: sharedCleanupResult.summary,
     modeSummary: modeResult.summary,
     enabledRules: cleaningOptions,

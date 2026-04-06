@@ -111,6 +111,66 @@ describe('cleanText', () => {
     expect(preservedOverride.preserveCodeTokens).toBe(false)
   })
 
+  it('applies the ai source preset before mode cleanup', () => {
+    const input = [
+      'Sure, here is the cleaned-up version:',
+      '',
+      '```markdown',
+      '## Heading',
+      '',
+      '- First point',
+      '```',
+      '',
+      'Let me know if you want a shorter version.',
+    ].join('\n')
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      sourcePreset: 'ai',
+    })
+
+    expect(result.cleanedText).toBe('Heading\n\nFirst point')
+    expect(result.sourcePreset).toBe('ai')
+    expect(result.sourceSummary.changesApplied).toBeGreaterThan(0)
+  })
+
+  it('applies the pdf source preset to repair hard wraps and hyphenated breaks', () => {
+    const input = [
+      'This para-',
+      'graph was copied from a PDF and',
+      'split across narrow columns.',
+      '',
+      'Next section stays separate.',
+    ].join('\n')
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      sourcePreset: 'pdf',
+    })
+
+    expect(result.cleanedText).toBe('This paragraph was copied from a PDF and split across narrow columns.\n\nNext section stays separate.')
+    expect(result.sourceSummary.stats).toContainEqual({ label: 'Hyphenated breaks repaired', value: 1 })
+  })
+
+  it('applies the gmail source preset even outside email mode', () => {
+    const input = [
+      'Hi team,',
+      '',
+      'Latest update is attached.',
+      '',
+      'On Tue, Apr 1, 2026 at 9:14 AM Morgan wrote:',
+      '> Previous thread',
+      '',
+      'Sent from my iPhone',
+    ].join('\n')
+
+    const result = cleanText(input, 'plain', {
+      ...getDefaultCleaningOptions('plain'),
+      sourcePreset: 'gmail',
+    })
+
+    expect(result.cleanedText).toBe('Hi team,\n\nLatest update is attached.')
+    expect(result.sourceSummary.changesApplied).toBeGreaterThan(0)
+  })
+
   it('keeps code-safe defaults from rewriting single-line string literal content', () => {
     const input = 'const label = "&amp; https://example.com/A%20B?utm_source=test&keep=1";'
     const result = cleanText(input, 'code', getDefaultCleaningOptions('code'))
