@@ -18,6 +18,11 @@ import {
   getDefaultCleaningOptions,
   syncCleaningOptionsForModeChange,
 } from './features/cleaner/cleanText'
+import {
+  applyDestinationPreset,
+  getDestinationPresetDefinition,
+  getDestinationPresets,
+} from './features/cleaner/destinationPresets'
 import { getModeDefinition, getModes } from './features/cleaner/modes'
 import {
   PROTECTED_REGION_ACTIONS,
@@ -35,8 +40,10 @@ import { STORAGE_KEYS } from './utils/storageKeys'
 
 const MODE_OPTIONS = getModes()
 const SOURCE_PRESET_OPTIONS = getSourcePresets()
+const DESTINATION_PRESET_OPTIONS = getDestinationPresets()
 const DEFAULT_MODE = 'plain'
 const DEFAULT_SOURCE_PRESET = 'none'
+const DEFAULT_DESTINATION_PRESET = 'none'
 const LEGAL_CONTENT = {
   privacy: {
     title: 'Privacy Policy',
@@ -108,6 +115,66 @@ function getModeLabel(modeId, fallback) {
 
 function createRuleId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createProjectBoardId() {
+  return `board-${createRuleId()}`
+}
+
+function buildDefaultBoardName(boardCount) {
+  return `Project Board ${boardCount + 1}`
+}
+
+function createProjectBoard(name, boardCount) {
+  const trimmedName = typeof name === 'string' ? name.trim() : ''
+  const now = new Date().toISOString()
+
+  return {
+    id: createProjectBoardId(),
+    name: trimmedName || buildDefaultBoardName(boardCount),
+    createdAt: now,
+    updatedAt: now,
+    items: [],
+  }
+}
+
+function createProjectBoardEntry({
+  input,
+  cleanedText,
+  mode,
+  modeLabel,
+  sourcePreset,
+  sourcePresetLabel,
+  destinationPreset,
+  destinationPresetLabel,
+  protectedRegions,
+}) {
+  return {
+    id: `board-entry-${createRuleId()}`,
+    input,
+    cleanedText,
+    mode,
+    modeLabel,
+    sourcePreset,
+    sourcePresetLabel,
+    destinationPreset,
+    destinationPresetLabel,
+    protectedRegions: Array.isArray(protectedRegions) ? protectedRegions : [],
+    savedAt: new Date().toISOString(),
+  }
+}
+
+function formatSavedTimestamp(value) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(value))
+  } catch {
+    return 'Saved just now'
+  }
 }
 
 const WRITING_AGGRESSIVE_OPTION_KEYS = ['stripHtmlTags', 'repairWrappedUrls']
@@ -295,7 +362,13 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
     formatSummaryItem('URLs cleaned', cleaningResult.urlSummary?.urlsChanged ?? 0),
     formatSummaryItem('Tracking params removed', cleaningResult.urlSummary?.trackingParamsRemoved ?? 0),
     formatSummaryItem('Custom replacements applied', cleaningResult.customRuleSummary?.replacementsMade ?? 0),
+    formatSummaryItem('Destination tweaks', cleaningResult.destinationSummary?.changesApplied ?? 0),
   ].filter(Boolean)
+
+  const destinationNote =
+    cleaningResult.destinationPreset && cleaningResult.destinationPreset !== DEFAULT_DESTINATION_PRESET
+      ? `${cleaningResult.destinationPresetLabel} destination active.`
+      : ''
 
   return {
     changed: true,
@@ -311,8 +384,8 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
                   getModeDefinition(cleaningResult.sourcePresetSuggestedMode).label
                 )} mode.`
               : '.'
-          }`
-        : '',
+          }${destinationNote ? ` ${destinationNote}` : ''}`
+        : destinationNote,
   }
 }
 
@@ -323,6 +396,13 @@ function App() {
   const [cleaningOptions, setCleaningOptions] = useState(() => getDefaultCleaningOptions(DEFAULT_MODE))
   const [customRules, setCustomRules] = useStoredState(STORAGE_KEYS.customRules, [])
   const [sourcePreset, setSourcePreset] = useStoredState(STORAGE_KEYS.sourcePreset, DEFAULT_SOURCE_PRESET)
+  const [destinationPreset, setDestinationPreset] = useStoredState(
+    STORAGE_KEYS.destinationPreset,
+    DEFAULT_DESTINATION_PRESET
+  )
+  const [sourceMemory, setSourceMemory] = useStoredState(STORAGE_KEYS.sourceMemory, {})
+  const [projectBoards, setProjectBoards] = useStoredState(STORAGE_KEYS.projectBoards, [])
+  const [activeProjectBoardId, setActiveProjectBoardId] = useStoredState(STORAGE_KEYS.activeProjectBoardId, null)
   const [theme, setTheme] = useStoredState(STORAGE_KEYS.theme, 'light')
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('')
@@ -333,21 +413,24 @@ function App() {
   const [activeMenu, setActiveMenu] = useState(null)
   const [activeLegalDoc, setActiveLegalDoc] = useState(null)
   const [activeModeGuide, setActiveModeGuide] = useState(null)
-  const [isProtectModalOpen, setIsProtectModalOpen] = useState(false)
+  const [isProtectPanelOpen, setIsProtectPanelOpen] = useState(false)
   const [recoverState, setRecoverState] = useState(null)
   const [displayedResult, setDisplayedResult] = useState(null)
   const [draftRuleFind, setDraftRuleFind] = useState('')
   const [draftRuleReplace, setDraftRuleReplace] = useState('')
+  const [draftBoardName, setDraftBoardName] = useState('')
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null)
   const [isPwaInstalled, setIsPwaInstalled] = useState(false)
   const [inputSelection, setInputSelection] = useState({ start: 0, end: 0 })
   const inputRef = useRef(null)
   const menuWrapRef = useRef(null)
+  const protectWrapRef = useRef(null)
   const settingsImportRef = useRef(null)
 
   const deferredInput = useDeferredValue(input)
   const deferredMode = useDeferredValue(mode)
   const deferredSourcePreset = useDeferredValue(sourcePreset)
+  const deferredDestinationPreset = useDeferredValue(destinationPreset)
   const isDarkMode = theme === 'dark'
 
   const result = useMemo(
@@ -359,6 +442,22 @@ function App() {
         protectedRegions,
       }),
     [cleaningOptions, customRules, deferredInput, deferredMode, deferredSourcePreset, protectedRegions]
+  )
+
+  const destinationResult = useMemo(
+    () => applyDestinationPreset(result.cleanedText, deferredDestinationPreset),
+    [deferredDestinationPreset, result.cleanedText]
+  )
+
+  const workspaceResult = useMemo(
+    () => ({
+      ...result,
+      cleanedText: destinationResult.text,
+      destinationPreset: destinationResult.preset.id,
+      destinationPresetLabel: destinationResult.preset.label,
+      destinationSummary: destinationResult.summary,
+    }),
+    [destinationResult, result]
   )
 
   useEffect(() => {
@@ -373,16 +472,57 @@ function App() {
       return
     }
 
-    setDisplayedResult(result)
-  }, [livePreviewEnabled, result])
+    setDisplayedResult(workspaceResult)
+  }, [livePreviewEnabled, workspaceResult])
+
+  useEffect(() => {
+    if (sourcePreset === DEFAULT_SOURCE_PRESET) {
+      return
+    }
+
+    setSourceMemory((current) => {
+      const currentEntry = current[sourcePreset] ?? {}
+
+      if (
+        currentEntry.preferredMode === mode &&
+        (currentEntry.preferredDestination ?? DEFAULT_DESTINATION_PRESET) === destinationPreset
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        [sourcePreset]: {
+          preferredMode: mode,
+          preferredDestination: destinationPreset,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    })
+  }, [destinationPreset, mode, setSourceMemory, sourcePreset])
+
+  useEffect(() => {
+    if (projectBoards.length === 0) {
+      if (activeProjectBoardId !== null) {
+        setActiveProjectBoardId(null)
+      }
+
+      return
+    }
+
+    if (!activeProjectBoardId || !projectBoards.some((board) => board.id === activeProjectBoardId)) {
+      setActiveProjectBoardId(projectBoards[0].id)
+    }
+  }, [activeProjectBoardId, projectBoards, setActiveProjectBoardId])
 
   const { history, setHistory, clearHistory, historyLimit, isSavingHistory } = usePasteHistory({
     input,
-    result,
+    result: workspaceResult,
     mode,
     sourcePreset,
+    destinationPreset,
     protectedRegions,
-    customRuleSummary: result.customRuleSummary,
+    customRuleSummary: workspaceResult.customRuleSummary,
   })
 
   useEffect(() => {
@@ -444,12 +584,16 @@ function App() {
       if (!menuWrapRef.current?.contains(event.target)) {
         setActiveMenu(null)
       }
+
+      if (!protectWrapRef.current?.contains(event.target)) {
+        setIsProtectPanelOpen(false)
+      }
     }
 
     function handleEsc(event) {
       if (event.key === 'Escape') {
-        if (isProtectModalOpen) {
-          closeProtectModal()
+        if (isProtectPanelOpen) {
+          closeProtectPanel()
           return
         }
 
@@ -474,7 +618,7 @@ function App() {
       window.removeEventListener('mousedown', handleClickAway)
       window.removeEventListener('keydown', handleEsc)
     }
-  }, [activeLegalDoc, activeModeGuide, isProtectModalOpen])
+  }, [activeLegalDoc, activeModeGuide, isProtectPanelOpen])
 
   function openLegalDoc(docType) {
     setActiveMenu(null)
@@ -502,13 +646,13 @@ function App() {
     })
   }
 
-  function openProtectModal() {
+  function toggleProtectPanel() {
     syncInputSelection()
-    setIsProtectModalOpen(true)
+    setIsProtectPanelOpen((current) => !current)
   }
 
-  function closeProtectModal() {
-    setIsProtectModalOpen(false)
+  function closeProtectPanel() {
+    setIsProtectPanelOpen(false)
   }
 
   function createRecoverSnapshot() {
@@ -516,9 +660,13 @@ function App() {
       input,
       mode,
       sourcePreset,
+      destinationPreset,
       protectedRegions,
       cleaningOptions,
       customRules,
+      sourceMemory,
+      projectBoards,
+      activeProjectBoardId,
       history,
     }
   }
@@ -549,7 +697,7 @@ function App() {
   }
 
   async function handleClean() {
-    if (!result.cleanedText) {
+    if (!workspaceResult.cleanedText) {
       const message = input.trim()
         ? 'No cleaned output yet. Adjust the text or rules and try again.'
         : 'Paste or type text before cleaning.'
@@ -559,15 +707,17 @@ function App() {
     }
 
     setIsCleaning(true)
-    setDisplayedResult(result)
+    setDisplayedResult(workspaceResult)
 
     try {
-      await navigator.clipboard.writeText(result.cleanedText)
+      await navigator.clipboard.writeText(workspaceResult.cleanedText)
       const message = livePreviewEnabled
         ? 'Cleaned text copied to clipboard.'
         : 'Output refreshed and copied to clipboard.'
-      setToast(message)
-      setLastAction(message)
+      const destinationMessage =
+        destinationPreset !== DEFAULT_DESTINATION_PRESET ? ` ${currentDestinationPresetDefinition.label} finish included.` : ''
+      setToast(`${message}${destinationMessage}`)
+      setLastAction(`${message}${destinationMessage}`)
     } catch {
       setToast('Unable to copy output.')
       setLastAction('Unable to copy output.')
@@ -624,7 +774,7 @@ function App() {
       const next = !current
 
       if (next) {
-        setDisplayedResult(result)
+        setDisplayedResult(workspaceResult)
         setToast('Live preview is active. Changes flow into the output automatically while you type.')
         setLastAction('Live preview activated.')
       } else {
@@ -642,19 +792,88 @@ function App() {
     }
 
     const nextSourcePresetDefinition = getSourcePresetDefinition(nextSourcePreset)
+    const rememberedSource = sourceMemory[nextSourcePreset]
+    const nextMode = rememberedSource?.preferredMode || nextSourcePresetDefinition.suggestedMode || mode
+    const nextDestination = rememberedSource?.preferredDestination || destinationPreset
+    const rememberedModeChanged = nextMode !== mode
+    const rememberedDestinationChanged = nextDestination !== destinationPreset
 
     setRecoverState(createRecoverSnapshot())
-    setSourcePreset(nextSourcePreset)
+    startTransition(() => {
+      setSourcePreset(nextSourcePreset)
+      setMode(nextMode)
+      setDestinationPreset(nextDestination)
+    })
+
+    if (nextSourcePreset === DEFAULT_SOURCE_PRESET) {
+      setToast('Source preset cleared.')
+      setLastAction('Source preset cleared.')
+      return
+    }
+
+    const nextModeLabel = getModeLabel(nextMode, getModeDefinition(nextMode).label)
+    const nextDestinationLabel = getDestinationPresetDefinition(nextDestination).label
+
+    if (rememberedSource) {
+      const rememberedParts = [nextSourcePresetDefinition.label, `mode: ${nextModeLabel}`]
+
+      if (rememberedDestinationChanged || nextDestination !== DEFAULT_DESTINATION_PRESET) {
+        rememberedParts.push(`destination: ${nextDestinationLabel}`)
+      }
+
+      setToast(`Restored saved ${rememberedParts.join(', ')}.`)
+      setLastAction(`${nextSourcePresetDefinition.label} source memory restored.`)
+      return
+    }
+
+    if (rememberedModeChanged) {
+      setToast(`${nextSourcePresetDefinition.label} preset is active. Switched to ${nextModeLabel} mode.`)
+      setLastAction(`${nextSourcePresetDefinition.label} preset selected.`)
+      return
+    }
+
+    setToast(`${nextSourcePresetDefinition.label} preset is active.`)
+    setLastAction(`${nextSourcePresetDefinition.label} preset selected.`)
+  }
+
+  function handleDestinationPresetChange(nextDestinationPreset) {
+    if (nextDestinationPreset === destinationPreset) {
+      return
+    }
+
+    const nextDestinationDefinition = getDestinationPresetDefinition(nextDestinationPreset)
+
+    setRecoverState(createRecoverSnapshot())
+    setDestinationPreset(nextDestinationPreset)
     setToast(
-      nextSourcePreset === DEFAULT_SOURCE_PRESET
-        ? 'Source preset cleared.'
-        : `${nextSourcePresetDefinition.label} preset is active.`
+      nextDestinationPreset === DEFAULT_DESTINATION_PRESET
+        ? 'Destination preset cleared.'
+        : `${nextDestinationDefinition.label} destination is active.`
     )
     setLastAction(
-      nextSourcePreset === DEFAULT_SOURCE_PRESET
-        ? 'Source preset cleared.'
-        : `${nextSourcePresetDefinition.label} preset selected.`
+      nextDestinationPreset === DEFAULT_DESTINATION_PRESET
+        ? 'Destination preset cleared.'
+        : `${nextDestinationDefinition.label} destination selected.`
     )
+  }
+
+  function handleClearSourceMemory(sourcePresetId = sourcePreset) {
+    if (!sourcePresetId || sourcePresetId === DEFAULT_SOURCE_PRESET || !sourceMemory[sourcePresetId]) {
+      setToast('No saved source memory for this preset.')
+      setLastAction('No source memory to clear.')
+      return
+    }
+
+    const label = getSourcePresetDefinition(sourcePresetId).label
+
+    setRecoverState(createRecoverSnapshot())
+    setSourceMemory((current) => {
+      const nextMemory = { ...current }
+      delete nextMemory[sourcePresetId]
+      return nextMemory
+    })
+    setToast(`${label} source memory cleared.`)
+    setLastAction(`${label} source memory cleared.`)
   }
 
   function handleProtectSelection(regionType) {
@@ -687,7 +906,7 @@ function App() {
 
     setRecoverState(createRecoverSnapshot())
     setProtectedRegions((current) => [...current, nextRegion].sort((left, right) => left.start - right.start))
-    closeProtectModal()
+    closeProtectPanel()
     window.requestAnimationFrame(() => {
       inputRef.current?.focus()
       inputRef.current?.setSelectionRange(selectionStart, selectionStart + selectedText.length)
@@ -705,7 +924,7 @@ function App() {
 
     setRecoverState(createRecoverSnapshot())
     setProtectedRegions([])
-    closeProtectModal()
+    closeProtectPanel()
     setToast('Protected regions removed.')
     setLastAction('Protected regions removed.')
   }
@@ -750,6 +969,7 @@ function App() {
       setInput(entry.input)
       setMode(entry.mode || DEFAULT_MODE)
       setSourcePreset(entry.sourcePreset || DEFAULT_SOURCE_PRESET)
+      setDestinationPreset(entry.destinationPreset || DEFAULT_DESTINATION_PRESET)
       setProtectedRegions(entry.protectedRegions ?? [])
     })
     setToast('History entry restored.')
@@ -761,6 +981,8 @@ function App() {
     setRecoverState(createRecoverSnapshot())
     setCleaningOptions(getDefaultCleaningOptions(mode))
     setSourcePreset(DEFAULT_SOURCE_PRESET)
+    setDestinationPreset(DEFAULT_DESTINATION_PRESET)
+    setSourceMemory({})
     setToast('Settings reset to default.')
     setLastAction('Settings reset to default.')
     setActiveMenu(null)
@@ -778,9 +1000,13 @@ function App() {
     clearHistory()
     setCleaningOptions(getDefaultCleaningOptions(mode))
     setSourcePreset(DEFAULT_SOURCE_PRESET)
+    setDestinationPreset(DEFAULT_DESTINATION_PRESET)
     setCustomRules([])
-    setToast('Local history cleared.')
-    setLastAction('Local history cleared.')
+    setSourceMemory({})
+    setProjectBoards([])
+    setActiveProjectBoardId(null)
+    setToast('Local workspace data cleared.')
+    setLastAction('Local workspace data cleared.')
     setActiveMenu(null)
   }
 
@@ -817,9 +1043,13 @@ function App() {
       setInput(recoverState.input)
       setMode(recoverState.mode)
       setSourcePreset(recoverState.sourcePreset ?? DEFAULT_SOURCE_PRESET)
+      setDestinationPreset(recoverState.destinationPreset ?? DEFAULT_DESTINATION_PRESET)
       setProtectedRegions(recoverState.protectedRegions ?? [])
       setCleaningOptions(recoverState.cleaningOptions)
       setCustomRules(recoverState.customRules ?? [])
+      setSourceMemory(recoverState.sourceMemory ?? {})
+      setProjectBoards(recoverState.projectBoards ?? [])
+      setActiveProjectBoardId(recoverState.activeProjectBoardId ?? null)
       setHistory(recoverState.history)
     })
 
@@ -849,7 +1079,13 @@ function App() {
   }
 
   function handleExportSettingsBackup() {
-    const backupText = serializeSettingsBackup({ cleaningOptions, sourcePreset, customRules })
+    const backupText = serializeSettingsBackup({
+      cleaningOptions,
+      sourcePreset,
+      destinationPreset,
+      customRules,
+      sourceMemory,
+    })
     const blob = new Blob([backupText], { type: 'application/json;charset=utf-8' })
     const objectUrl = URL.createObjectURL(blob)
     const timestamp = new Date().toISOString().slice(0, 19).replaceAll(':', '-')
@@ -885,6 +1121,7 @@ function App() {
       setRecoverState(createRecoverSnapshot())
       setCleaningOptions(imported.cleaningOptions)
       setSourcePreset(imported.sourcePreset || DEFAULT_SOURCE_PRESET)
+      setDestinationPreset(imported.destinationPreset || DEFAULT_DESTINATION_PRESET)
       setCustomRules(
         imported.customRules.map((rule) => ({
           id: rule.id || createRuleId(),
@@ -893,6 +1130,7 @@ function App() {
           enabled: rule.enabled,
         }))
       )
+      setSourceMemory(imported.sourceMemory ?? {})
 
       setToast('Settings backup imported.')
       setLastAction('Settings backup imported.')
@@ -904,6 +1142,83 @@ function App() {
     } finally {
       event.target.value = ''
     }
+  }
+
+  function handleCreateProjectBoard() {
+    setRecoverState(createRecoverSnapshot())
+    const nextBoard = createProjectBoard(draftBoardName, projectBoards.length)
+
+    setProjectBoards((current) => [nextBoard, ...current])
+    setActiveProjectBoardId(nextBoard.id)
+    setDraftBoardName('')
+    setToast(`${nextBoard.name} created locally.`)
+    setLastAction(`${nextBoard.name} created.`)
+  }
+
+  function handleSaveToProjectBoard() {
+    if (!input.trim() && !workspaceResult.cleanedText.trim()) {
+      setToast('Paste or clean some text before saving to a board.')
+      setLastAction('Board save skipped.')
+      return
+    }
+
+    const boardId = activeProjectBoardId || createProjectBoardId()
+    const activeBoard = projectBoards.find((board) => board.id === boardId)
+    const boardName = activeBoard?.name || draftBoardName.trim() || buildDefaultBoardName(projectBoards.length)
+    const entry = createProjectBoardEntry({
+      input,
+      cleanedText: workspaceResult.cleanedText,
+      mode,
+      modeLabel: currentModeLabel,
+      sourcePreset,
+      sourcePresetLabel: currentSourcePresetDefinition.label,
+      destinationPreset,
+      destinationPresetLabel: currentDestinationPresetDefinition.label,
+      protectedRegions,
+    })
+
+    setRecoverState(createRecoverSnapshot())
+    setProjectBoards((current) => {
+      const nextBoards = [...current]
+      const existingIndex = nextBoards.findIndex((board) => board.id === boardId)
+
+      if (existingIndex === -1) {
+        nextBoards.unshift({
+          id: boardId,
+          name: boardName,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          items: [entry],
+        })
+      } else {
+        const existingBoard = nextBoards[existingIndex]
+
+        nextBoards[existingIndex] = {
+          ...existingBoard,
+          updatedAt: entry.savedAt,
+          items: [entry, ...(existingBoard.items ?? [])].slice(0, 12),
+        }
+      }
+
+      return nextBoards
+    })
+    setActiveProjectBoardId(boardId)
+    setDraftBoardName('')
+    setToast(`${boardName} updated with the current paste.`)
+    setLastAction(`${boardName} updated.`)
+  }
+
+  function handleRestoreBoardItem(item) {
+    setRecoverState(createRecoverSnapshot())
+    startTransition(() => {
+      setInput(item.input ?? '')
+      setMode(item.mode || DEFAULT_MODE)
+      setSourcePreset(item.sourcePreset || DEFAULT_SOURCE_PRESET)
+      setDestinationPreset(item.destinationPreset || DEFAULT_DESTINATION_PRESET)
+      setProtectedRegions(item.protectedRegions ?? [])
+    })
+    setToast('Board item restored.')
+    setLastAction('Board item restored.')
   }
 
   function handleAddCustomRule() {
@@ -1005,6 +1320,8 @@ function App() {
   const currentModeDefinition = getModeDefinition(mode)
   const currentModeLabel = getModeLabel(mode, currentModeDefinition.label)
   const currentSourcePresetDefinition = getSourcePresetDefinition(sourcePreset)
+  const currentDestinationPresetDefinition = getDestinationPresetDefinition(destinationPreset)
+  const currentSourceMemory = sourceMemory[sourcePreset]
   const currentSourcePresetSuggestedModeLabel =
     currentSourcePresetDefinition.suggestedMode && currentSourcePresetDefinition.suggestedMode !== mode
       ? getModeLabel(
@@ -1012,12 +1329,32 @@ function App() {
           getModeDefinition(currentSourcePresetDefinition.suggestedMode).label
         )
       : ''
+  const rememberedSourceModeLabel = currentSourceMemory?.preferredMode
+    ? getModeLabel(currentSourceMemory.preferredMode, getModeDefinition(currentSourceMemory.preferredMode).label)
+    : ''
+  const rememberedDestinationLabel =
+    currentSourceMemory?.preferredDestination &&
+    currentSourceMemory.preferredDestination !== DEFAULT_DESTINATION_PRESET
+      ? getDestinationPresetDefinition(currentSourceMemory.preferredDestination).label
+      : ''
   const sourcePresetAssistText =
     sourcePreset === DEFAULT_SOURCE_PRESET
       ? 'Tell PasteClean where the text came from when you want source-specific cleanup.'
       : `${currentSourcePresetDefinition.description}${
           currentSourcePresetSuggestedModeLabel ? ` Best paired with ${currentSourcePresetSuggestedModeLabel} mode.` : ''
         }`
+  const sourceMemoryAssistText =
+    sourcePreset === DEFAULT_SOURCE_PRESET
+      ? `${Object.keys(sourceMemory).length} saved source preference${Object.keys(sourceMemory).length === 1 ? '' : 's'} on this device.`
+      : currentSourceMemory
+        ? `Remembers ${rememberedSourceModeLabel || currentModeLabel}${
+            rememberedDestinationLabel ? ` + ${rememberedDestinationLabel}` : ''
+          } for ${currentSourcePresetDefinition.label} on this device.`
+        : `No saved source memory yet. PasteClean will remember the mode and destination you use with ${currentSourcePresetDefinition.label}.`
+  const destinationPresetAssistText =
+    destinationPreset === DEFAULT_DESTINATION_PRESET
+      ? 'Tell PasteClean where the cleaned text is going next when you want output-specific finishing.'
+      : currentDestinationPresetDefinition.description
   const protectedRegionCount = countProtectedRegions(protectedRegions)
   const protectedRegionSummary = summarizeProtectedRegions(protectedRegions)
   const protectedRegionSummaryParts = [
@@ -1030,6 +1367,11 @@ function App() {
     protectedRegionCount === 0
       ? 'Selections stay invisible in Raw Input and are tracked only in this workspace.'
       : `Active now: ${protectedRegionSummaryParts.join(', ')}. Selections stay invisible in Raw Input.`
+  const selectedCharacterCount = Math.max(inputSelection.end - inputSelection.start, 0)
+  const protectPanelStatus =
+    selectedCharacterCount === 0
+      ? 'Select text in Raw Input, then choose a protection type.'
+      : `Selected ${selectedCharacterCount} characters.`
   const modeSafeToggles = getModeSafeToggles(mode)
   const modeWarnings = getModeWarnings(mode, cleaningOptions)
   const modeControlsSummary =
@@ -1042,7 +1384,11 @@ function App() {
   const hasInput = Boolean(input.trim())
   const hasHistory = history.length > 0
   const hasDisplayedOutput = Boolean(displayedOutput.trim())
-  const outputNeedsRefresh = hasInput && !livePreviewEnabled && displayedOutput !== result.cleanedText
+  const activeProjectBoard = projectBoards.find((board) => board.id === activeProjectBoardId) ?? null
+  const activeProjectBoardItems = activeProjectBoard?.items ?? []
+  const boardPreviewItems = activeProjectBoardItems.slice(0, 3)
+  const boardSaveDisabled = !hasInput && !hasDisplayedOutput
+  const outputNeedsRefresh = hasInput && !livePreviewEnabled && displayedOutput !== workspaceResult.cleanedText
   const historyExportDisabled = !hasHistory || isSavingHistory || Boolean(exportingHistoryFormat)
   const cleanButtonLabel = isPasting ? 'Pasting...' : isCleaning ? 'Refreshing...' : outputNeedsRefresh ? 'Refresh output' : 'Clean'
 
@@ -1202,6 +1548,9 @@ function App() {
                         {entry.sourcePresetLabel && entry.sourcePresetLabel !== 'No preset'
                           ? ` / ${entry.sourcePresetLabel}`
                           : ''}
+                        {entry.destinationPresetLabel && entry.destinationPresetLabel !== 'No destination'
+                          ? ` / ${entry.destinationPresetLabel}`
+                          : ''}
                         {entry.protectedRegionCount ? ` / ${entry.protectedRegionCount} locks` : ''}
                       </strong>
                       <span>{entry.input.slice(0, 44) || 'Empty paste'}</span>
@@ -1276,6 +1625,31 @@ function App() {
                 </div>
                 <p className="pcMenuHint pcMenuHintInline">
                   <strong>{currentSourcePresetDefinition.label}:</strong> {sourcePresetAssistText}
+                </p>
+                <p className="pcMenuHint pcMenuHintInline">{sourceMemoryAssistText}</p>
+                {sourcePreset !== DEFAULT_SOURCE_PRESET && currentSourceMemory ? (
+                  <button type="button" className="pcMenuAction" onClick={() => handleClearSourceMemory()}>
+                    Forget saved source combo
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="pcMenuSection">
+                <p className="pcMenuSectionTitle">Output destination</p>
+                <div className="pcMenuPills">
+                  {DESTINATION_PRESET_OPTIONS.map((preset) => (
+                    <button
+                      key={`destination-${preset.id}`}
+                      type="button"
+                      className={`pcMenuPill ${preset.id === destinationPreset ? 'pcMenuPillActive' : ''}`}
+                      onClick={() => handleDestinationPresetChange(preset.id)}
+                    >
+                      {preset.shortLabel}
+                    </button>
+                  ))}
+                </div>
+                <p className="pcMenuHint pcMenuHintInline">
+                  <strong>{currentDestinationPresetDefinition.label}:</strong> {destinationPresetAssistText}
                 </p>
               </div>
 
@@ -1417,7 +1791,7 @@ function App() {
                   Load sample text
                 </button>
                 <button type="button" className="pcMenuAction" onClick={handleResetSettings}>
-                  Reset cleaning rules
+                  Reset workspace preferences
                 </button>
                 <button type="button" className="pcMenuAction" onClick={handleResetCustomRules}>
                   Reset custom rules
@@ -1445,7 +1819,7 @@ function App() {
               <p className="pcMenuTitle">Profile</p>
               <p className="pcMenuHint">This workspace runs locally in your browser.</p>
               <button type="button" className="pcMenuAction pcMenuDanger" onClick={handleClearLocalData}>
-                Clear local history
+                Clear local workspace data
               </button>
               {recoverState ? (
                 <button type="button" className="pcMenuAction" onClick={handleUndoLastChange}>
@@ -1532,6 +1906,24 @@ function App() {
               ))}
             </div>
             <p className="pcSourcePresetAssist">{sourcePresetAssistText}</p>
+            <p className="pcSourcePresetAssist">{sourceMemoryAssistText}</p>
+
+            <p className="pcSubLabel">Output Destination</p>
+            <p className="pcQuickHint">Tell PasteClean where the cleaned text is going next.</p>
+            <div className="pcSourcePresetGrid">
+              {DESTINATION_PRESET_OPTIONS.map((preset) => (
+                <button
+                  key={`quick-destination-${preset.id}`}
+                  type="button"
+                  className={`pcSourcePresetButton ${preset.id === destinationPreset ? 'pcSourcePresetButtonActive' : ''}`}
+                  onClick={() => handleDestinationPresetChange(preset.id)}
+                >
+                  <strong>{preset.shortLabel}</strong>
+                  <span>{preset.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="pcSourcePresetAssist">{destinationPresetAssistText}</p>
           </article>
 
           <article className="pcCard">
@@ -1553,7 +1945,86 @@ function App() {
                 <strong>{history.length.toLocaleString()}</strong>
                 <span>Saved Pastes</span>
               </div>
+              <div>
+                <strong>{projectBoards.length.toLocaleString()}</strong>
+                <span>Boards</span>
+              </div>
+              <div>
+                <strong>{activeProjectBoardItems.length.toLocaleString()}</strong>
+                <span>Active Board Items</span>
+              </div>
             </div>
+          </article>
+
+          <article className="pcCard">
+            <p className="pcLabel">Project Board</p>
+            <p className="pcQuickHint">Keep related pastes together locally on this device.</p>
+            <div className="pcBoardControls">
+              <select
+                className="pcBoardSelect"
+                value={activeProjectBoardId ?? ''}
+                onChange={(event) => setActiveProjectBoardId(event.target.value || null)}
+              >
+                <option value="">No board selected</option>
+                {projectBoards.map((board) => (
+                  <option key={board.id} value={board.id}>
+                    {board.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pcInlineFieldRow">
+                <input
+                  type="text"
+                  className="pcCustomRuleInput"
+                  placeholder={buildDefaultBoardName(projectBoards.length)}
+                  value={draftBoardName}
+                  onChange={(event) => setDraftBoardName(event.target.value)}
+                />
+                <button type="button" className="pcSecondaryButton" onClick={handleCreateProjectBoard}>
+                  New board
+                </button>
+              </div>
+              <button
+                type="button"
+                className="pcSecondaryButton pcBoardSaveButton"
+                onClick={handleSaveToProjectBoard}
+                disabled={boardSaveDisabled}
+              >
+                Save current paste
+              </button>
+            </div>
+            {activeProjectBoard ? (
+              <>
+                <p className="pcSourcePresetAssist">
+                  <strong>{activeProjectBoard.name}:</strong> {activeProjectBoardItems.length} saved item
+                  {activeProjectBoardItems.length === 1 ? '' : 's'}.
+                </p>
+                {boardPreviewItems.length === 0 ? (
+                  <p className="pcBoardEmpty">Save the current workspace to start this board.</p>
+                ) : (
+                  <div className="pcBoardList">
+                    {boardPreviewItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="pcBoardItem"
+                        onClick={() => handleRestoreBoardItem(item)}
+                      >
+                        <strong>{item.modeLabel}</strong>
+                        <span>{item.input.slice(0, 56) || 'Empty paste'}</span>
+                        <small>
+                          {item.sourcePresetLabel !== 'No preset' ? `${item.sourcePresetLabel} / ` : ''}
+                          {item.destinationPresetLabel !== 'No destination' ? `${item.destinationPresetLabel} / ` : ''}
+                          {formatSavedTimestamp(item.savedAt)}
+                        </small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="pcBoardEmpty">Create a board when you want to group related pastes locally.</p>
+            )}
           </article>
         </aside>
 
@@ -1608,13 +2079,56 @@ function App() {
               <div className="pcEditorCardTop">
                 <p className="pcEditorLabel">Raw Input</p>
                 <div className="pcEditorCardActions">
-                  <button
-                    type="button"
-                    className="pcEditorActionButton"
-                    onClick={openProtectModal}
-                  >
-                    Protect
-                  </button>
+                  <div className="pcProtectWrap" ref={protectWrapRef}>
+                    <button
+                      type="button"
+                      className={`pcEditorActionButton ${isProtectPanelOpen ? 'pcEditorActionButtonActive' : ''}`}
+                      aria-expanded={isProtectPanelOpen}
+                      aria-controls="pcProtectPanel"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={toggleProtectPanel}
+                    >
+                      Protect
+                    </button>
+                    {isProtectPanelOpen ? (
+                      <section
+                        id="pcProtectPanel"
+                        className="pcProtectPopover"
+                        role="dialog"
+                        aria-modal="false"
+                        aria-labelledby="pcProtectPanelTitle"
+                      >
+                        <div className="pcProtectToolbarTop">
+                          <p id="pcProtectPanelTitle" className="pcProtectLabel">
+                            Protect Selection
+                          </p>
+                          <button
+                            type="button"
+                            className="pcProtectClear"
+                            onClick={handleClearProtectedRegions}
+                            disabled={protectedRegionCount === 0}
+                          >
+                            Clear all
+                          </button>
+                        </div>
+                        <p className="pcProtectHint">{protectPanelStatus}</p>
+                        <div className="pcProtectActions">
+                          {PROTECTED_REGION_ACTIONS.map((action) => (
+                            <button
+                              key={action.id}
+                              type="button"
+                              className="pcProtectAction"
+                              onClick={() => handleProtectSelection(action.id)}
+                            >
+                              <strong>{action.label}</strong>
+                              <span>{action.description}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <p className="pcProtectMeta">{protectedRegionAssistText}</p>
+                      </section>
+                    ) : null}
+                  </div>
                   <button
                     type="button"
                     className="pcEditorIconButton"
@@ -1777,63 +2291,6 @@ function App() {
       {toast ? (
         <div className="pcToast" role="status" aria-live="polite" aria-atomic="true">
           {toast}
-        </div>
-      ) : null}
-
-      {isProtectModalOpen ? (
-        <div
-          className="pcLegalBackdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              closeProtectModal()
-            }
-          }}
-        >
-          <section className="pcLegalModal pcProtectModal" role="dialog" aria-modal="true" aria-labelledby="pcProtectModalTitle">
-            <div className="pcLegalTop">
-              <h2 id="pcProtectModalTitle">Protect Selection</h2>
-              <button type="button" className="pcLegalClose" onClick={closeProtectModal}>
-                Close
-              </button>
-            </div>
-            <p className="pcLegalUpdated">
-              {inputSelection.start === inputSelection.end
-                ? 'Select text in Raw Input, then choose a protection type.'
-                : `Selected ${inputSelection.end - inputSelection.start} characters.`}
-            </p>
-
-            <div className="pcProtectModalBody">
-              <div className="pcProtectToolbarTop">
-                <p className="pcProtectLabel">Protection Types</p>
-                <button
-                  type="button"
-                  className="pcProtectClear"
-                  onClick={handleClearProtectedRegions}
-                  disabled={protectedRegionCount === 0}
-                >
-                  Clear all
-                </button>
-              </div>
-              <p className="pcProtectHint">
-                Select part of the input, then choose how strongly PasteClean should protect it. {protectedRegionCount} active.
-              </p>
-              <div className="pcProtectActions">
-                {PROTECTED_REGION_ACTIONS.map((action) => (
-                  <button
-                    key={action.id}
-                    type="button"
-                    className="pcProtectAction"
-                    onClick={() => handleProtectSelection(action.id)}
-                  >
-                    <strong>{action.label}</strong>
-                    <span>{action.description}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="pcProtectMeta">{protectedRegionAssistText}</p>
-            </div>
-          </section>
         </div>
       ) : null}
 

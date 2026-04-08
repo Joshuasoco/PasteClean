@@ -5,7 +5,7 @@ import { STORAGE_KEYS } from '../utils/storageKeys'
 const HISTORY_LIMIT = 20
 const SAVE_DELAY_MS = 900
 
-function createHistoryEntry({ input, result, mode, sourcePreset, protectedRegions, customRuleSummary }) {
+function createHistoryEntry({ input, result, mode, sourcePreset, destinationPreset, protectedRegions, customRuleSummary }) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     input,
@@ -14,6 +14,8 @@ function createHistoryEntry({ input, result, mode, sourcePreset, protectedRegion
     modeLabel: result.modeLabel,
     sourcePreset,
     sourcePresetLabel: result.sourcePresetLabel,
+    destinationPreset,
+    destinationPresetLabel: result.destinationPresetLabel,
     protectedRegions: Array.isArray(protectedRegions) ? protectedRegions : [],
     protectedRegionCount: result.protectedSummary?.totalRegions ?? 0,
     savedAt: new Date().toISOString(),
@@ -22,7 +24,7 @@ function createHistoryEntry({ input, result, mode, sourcePreset, protectedRegion
   }
 }
 
-export function usePasteHistory({ input, result, mode, sourcePreset, protectedRegions, customRuleSummary }) {
+export function usePasteHistory({ input, result, mode, sourcePreset, destinationPreset, protectedRegions, customRuleSummary }) {
   const [history, setHistory] = useStoredState(STORAGE_KEYS.history, [])
   const [isSavingHistory, setIsSavingHistory] = useState(false)
   const hasInitialized = useRef(false)
@@ -50,19 +52,29 @@ export function usePasteHistory({ input, result, mode, sourcePreset, protectedRe
           newestEntry.cleanedText === result.cleanedText &&
           newestEntry.mode === mode &&
           newestEntry.sourcePreset === sourcePreset &&
+          (newestEntry.destinationPreset ?? 'none') === destinationPreset &&
           (newestEntry.protectedRegionCount ?? 0) === (result.protectedSummary?.totalRegions ?? 0) &&
           newestEntry.customReplacements === customRuleSummary.replacementsMade
         ) {
           return currentHistory
         }
 
-        const nextEntry = createHistoryEntry({ input, result, mode, sourcePreset, protectedRegions, customRuleSummary })
+        const nextEntry = createHistoryEntry({
+          input,
+          result,
+          mode,
+          sourcePreset,
+          destinationPreset,
+          protectedRegions,
+          customRuleSummary,
+        })
         const dedupedHistory = currentHistory.filter(
           (entry) =>
             !(
               entry.input === nextEntry.input &&
               entry.mode === nextEntry.mode &&
               (entry.sourcePreset ?? 'none') === nextEntry.sourcePreset &&
+              (entry.destinationPreset ?? 'none') === nextEntry.destinationPreset &&
               (entry.protectedRegionCount ?? 0) === nextEntry.protectedRegionCount
             )
         )
@@ -73,7 +85,7 @@ export function usePasteHistory({ input, result, mode, sourcePreset, protectedRe
     }, SAVE_DELAY_MS)
 
     return () => window.clearTimeout(timeoutId)
-  }, [customRuleSummary, input, mode, protectedRegions, result, setHistory, sourcePreset])
+  }, [customRuleSummary, destinationPreset, input, mode, protectedRegions, result, setHistory, sourcePreset])
 
   function clearHistory() {
     setHistory([])

@@ -73,7 +73,8 @@ html[data-theme='dark'] body {
 
 button,
 textarea,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -318,7 +319,9 @@ html[data-theme='dark'] .pcModeGuideCard,
 html[data-theme='dark'] .pcOutputChangeChip,
 html[data-theme='dark'] .pcDiffPane,
 html[data-theme='dark'] .pcEditor,
-html[data-theme='dark'] .pcCustomRuleInput {
+html[data-theme='dark'] .pcCustomRuleInput,
+html[data-theme='dark'] .pcBoardSelect,
+html[data-theme='dark'] .pcBoardItem {
   background: #121816;
   color: var(--ink);
 }
@@ -651,6 +654,87 @@ html[data-theme='dark'] .pcLegalBackdrop {
 .pcCustomRuleInput:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(36, 211, 109, 0.28);
+}
+
+.pcBoardControls {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.pcBoardSelect {
+  width: 100%;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: #171717;
+  padding: 0.5rem 0.6rem;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.pcBoardSelect:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(36, 211, 109, 0.28);
+}
+
+.pcInlineFieldRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+}
+
+.pcBoardSaveButton {
+  justify-content: center;
+}
+
+.pcBoardList {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.pcBoardItem {
+  width: 100%;
+  text-align: left;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.65rem 0.75rem;
+  display: grid;
+  gap: 0.18rem;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcBoardItem:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcBoardItem strong {
+  font-size: 0.82rem;
+}
+
+.pcBoardItem span {
+  font-size: 0.76rem;
+  color: #2f2f2f;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.pcBoardItem small {
+  font-size: 0.7rem;
+  color: #3a3a3a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pcBoardEmpty {
+  margin: 0.75rem 0 0;
+  color: #2b2b2b;
+  font-size: 0.8rem;
+  line-height: 1.45;
 }
 
 .pcCustomRuleAdd {
@@ -1295,6 +1379,10 @@ html[data-theme='dark'] .pcSourcePresetButton span {
   gap: 0.45rem;
 }
 
+.pcProtectWrap {
+  position: relative;
+}
+
 .pcEditorActionButton {
   border-radius: 10px;
   border: 2px solid var(--line);
@@ -1310,6 +1398,25 @@ html[data-theme='dark'] .pcSourcePresetButton span {
 .pcEditorActionButton:hover {
   transform: translate(-1px, -1px);
   box-shadow: var(--shadow-soft);
+}
+
+.pcEditorActionButtonActive {
+  background: var(--accent);
+}
+
+.pcProtectPopover {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  right: 0;
+  z-index: 12;
+  width: min(360px, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.72rem;
+  padding: 0.82rem;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  box-shadow: var(--shadow);
 }
 
 .pcEditorIconButton {
@@ -1340,20 +1447,17 @@ html[data-theme='dark'] .pcProtectAction span {
   color: #d7dfd8;
 }
 
+html[data-theme='dark'] .pcBoardItem span,
+html[data-theme='dark'] .pcBoardItem small,
+html[data-theme='dark'] .pcBoardEmpty {
+  color: #d0d9d2;
+}
+
 .pcEditorAssist {
   margin: 0.72rem 0 0;
   color: #2b2b2b;
   font-size: 0.78rem;
   line-height: 1.45;
-}
-
-.pcProtectModal {
-  width: min(720px, 100%);
-}
-
-.pcProtectModalBody {
-  display: grid;
-  gap: 0.72rem;
 }
 
 .pcOutputState {
@@ -1761,6 +1865,10 @@ html[data-theme='dark'] .pcProtectAction span {
   }
 
   .pcCustomRuleRow {
+    grid-template-columns: 1fr;
+  }
+
+  .pcInlineFieldRow {
     grid-template-columns: 1fr;
   }
 

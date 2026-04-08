@@ -1,4 +1,4 @@
-const SETTINGS_BACKUP_VERSION = 1
+const SETTINGS_BACKUP_VERSION = 2
 
 function sanitizeCustomRules(customRules) {
   if (!Array.isArray(customRules)) {
@@ -23,7 +23,49 @@ function sanitizeCustomRules(customRules) {
     .filter(Boolean)
 }
 
-export function serializeSettingsBackup({ cleaningOptions, sourcePreset = 'none', customRules, createdAt = new Date() }) {
+function sanitizeSourceMemory(sourceMemory) {
+  if (!sourceMemory || typeof sourceMemory !== 'object') {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(sourceMemory).flatMap(([sourcePresetId, entry]) => {
+      if (typeof sourcePresetId !== 'string' || !sourcePresetId || !entry || typeof entry !== 'object') {
+        return []
+      }
+
+      const preferredMode =
+        typeof entry.preferredMode === 'string' && entry.preferredMode ? entry.preferredMode : undefined
+      const preferredDestination =
+        typeof entry.preferredDestination === 'string' && entry.preferredDestination
+          ? entry.preferredDestination
+          : undefined
+
+      if (!preferredMode && !preferredDestination) {
+        return []
+      }
+
+      return [
+        [
+          sourcePresetId,
+          {
+            preferredMode,
+            preferredDestination,
+          },
+        ],
+      ]
+    })
+  )
+}
+
+export function serializeSettingsBackup({
+  cleaningOptions,
+  sourcePreset = 'none',
+  destinationPreset = 'none',
+  customRules,
+  sourceMemory,
+  createdAt = new Date(),
+}) {
   const exportedAt = createdAt.toISOString()
   const payload = {
     app: 'PasteClean',
@@ -32,7 +74,9 @@ export function serializeSettingsBackup({ cleaningOptions, sourcePreset = 'none'
     exportedAt,
     cleaningOptions: { ...(cleaningOptions ?? {}) },
     sourcePreset: typeof sourcePreset === 'string' && sourcePreset ? sourcePreset : 'none',
+    destinationPreset: typeof destinationPreset === 'string' && destinationPreset ? destinationPreset : 'none',
     customRules: sanitizeCustomRules(customRules),
+    sourceMemory: sanitizeSourceMemory(sourceMemory),
   }
 
   return JSON.stringify(payload, null, 2)
@@ -69,6 +113,9 @@ export function parseSettingsBackup(rawValue, defaultCleaningOptions) {
   return {
     cleaningOptions: nextCleaningOptions,
     sourcePreset: typeof parsed.sourcePreset === 'string' && parsed.sourcePreset ? parsed.sourcePreset : 'none',
+    destinationPreset:
+      typeof parsed.destinationPreset === 'string' && parsed.destinationPreset ? parsed.destinationPreset : 'none',
     customRules: sanitizeCustomRules(parsed.customRules),
+    sourceMemory: sanitizeSourceMemory(parsed.sourceMemory),
   }
 }
