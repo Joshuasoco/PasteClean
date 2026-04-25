@@ -1,5 +1,6 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowLeftRight,
   BrushCleaning,
   ClipboardPaste,
   History,
@@ -44,6 +45,11 @@ const DESTINATION_PRESET_OPTIONS = getDestinationPresets()
 const DEFAULT_MODE = 'plain'
 const DEFAULT_SOURCE_PRESET = 'none'
 const DEFAULT_DESTINATION_PRESET = 'none'
+const SIDEBAR_TABS = [
+  { id: 'config', label: 'Config', icon: Settings },
+  { id: 'source-output', label: 'Source / Output', icon: ArrowLeftRight },
+  { id: 'board', label: 'Board', icon: History },
+]
 const LEGAL_CONTENT = {
   privacy: {
     title: 'Privacy Policy',
@@ -404,6 +410,7 @@ function App() {
   const [projectBoards, setProjectBoards] = useStoredState(STORAGE_KEYS.projectBoards, [])
   const [activeProjectBoardId, setActiveProjectBoardId] = useStoredState(STORAGE_KEYS.activeProjectBoardId, null)
   const [theme, setTheme] = useStoredState(STORAGE_KEYS.theme, 'light')
+  const [activeSidebarTab, setActiveSidebarTab] = useState('config')
   const [livePreviewEnabled, setLivePreviewEnabled] = useState(true)
   const [toast, setToast] = useState('')
   const [lastAction, setLastAction] = useState('Live preview is active.')
@@ -1833,198 +1840,247 @@ function App() {
 
       <section className="pcMainGrid">
         <aside className="pcRail">
-          <article className="pcCard">
-            <p className="pcLabel">Quick Config</p>
+          <article className="pcCard pcRailPanelCard">
+            <div className="pcRailTabs" role="tablist" aria-label="Sidebar sections">
+              {SIDEBAR_TABS.map((tab) => {
+                const Icon = tab.icon
 
-            <div className="pcRowBetween pcLiveRow">
-              <span>Live Preview</span>
-              <button
-                type="button"
-                className={`pcSwitch ${livePreviewEnabled ? 'pcSwitchOn' : 'pcSwitchOff'}`}
-                aria-label="Toggle live preview"
-                aria-pressed={livePreviewEnabled}
-                onClick={handleToggleLivePreview}
-              >
-                <span className="pcSwitchKnob" />
-              </button>
+                return (
+                  <button
+                    key={tab.id}
+                    id={`pcSidebarTab-${tab.id}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeSidebarTab === tab.id}
+                    aria-controls={`pcSidebarPanel-${tab.id}`}
+                    className={`pcRailTab ${activeSidebarTab === tab.id ? 'pcRailTabActive' : ''}`}
+                    onClick={() => setActiveSidebarTab(tab.id)}
+                  >
+                    <Icon size={14} strokeWidth={2.2} aria-hidden="true" />
+                    <span>{tab.label}</span>
+                  </button>
+                )
+              })}
             </div>
 
-            <p className="pcQuickHint">Fast actions only. Advanced rules live in Settings.</p>
-
-            <p className="pcSubLabel">Processing Modes</p>
-            <div className="pcModeToggles">
-              <button
-                type="button"
-                className={`pcPillToggle ${smartCleanEnabled ? 'pcPillToggleActive' : ''}`}
-                onClick={() => setAllRules(!smartCleanEnabled)}
+            {activeSidebarTab === 'config' ? (
+              <section
+                id="pcSidebarPanel-config"
+                role="tabpanel"
+                aria-labelledby="pcSidebarTab-config"
+                className="pcRailTabPanel"
               >
-                <span className="pcPillLeft">
-                  <Sparkles size={16} />
-                  <span>Smart Clean</span>
-                </span>
-                <span className="pcPillState">{smartCleanEnabled ? 'On' : 'Off'}</span>
-              </button>
+                <p className="pcLabel">Quick Config</p>
 
-              <button
-                type="button"
-                className={`pcPillToggle ${fixQuotesEnabled ? 'pcPillToggleActive' : ''}`}
-                onClick={() => handleToggleRule('normalizePunctuation')}
+                <div className="pcRowBetween pcLiveRow">
+                  <span>Live Preview</span>
+                  <button
+                    type="button"
+                    className={`pcSwitch ${livePreviewEnabled ? 'pcSwitchOn' : 'pcSwitchOff'}`}
+                    aria-label="Toggle live preview"
+                    aria-pressed={livePreviewEnabled}
+                    onClick={handleToggleLivePreview}
+                  >
+                    <span className="pcSwitchKnob" />
+                  </button>
+                </div>
+
+                <p className="pcQuickHint">Fast actions only. Advanced rules live in Settings.</p>
+
+                <p className="pcSubLabel">Processing Modes</p>
+                <div className="pcModeToggles">
+                  <button
+                    type="button"
+                    className={`pcPillToggle ${smartCleanEnabled ? 'pcPillToggleActive' : ''}`}
+                    onClick={() => setAllRules(!smartCleanEnabled)}
+                  >
+                    <span className="pcPillLeft">
+                      <Sparkles size={16} />
+                      <span>Smart Clean</span>
+                    </span>
+                    <span className="pcPillState">{smartCleanEnabled ? 'On' : 'Off'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`pcPillToggle ${fixQuotesEnabled ? 'pcPillToggleActive' : ''}`}
+                    onClick={() => handleToggleRule('normalizePunctuation')}
+                  >
+                    <span className="pcPillLeft">
+                      <Quote size={16} />
+                      <span>Fix Quotes</span>
+                    </span>
+                    <span className="pcPillState">{fixQuotesEnabled ? 'On' : 'Off'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`pcPillToggle ${stripUrlsEnabled ? 'pcPillToggleActive' : ''}`}
+                    onClick={handleToggleUrlRules}
+                  >
+                    <span className="pcPillLeft">
+                      <Link2Off size={16} />
+                      <span>Strip URLs</span>
+                    </span>
+                    <span className="pcPillState">{stripUrlsEnabled ? 'On' : 'Off'}</span>
+                  </button>
+                </div>
+              </section>
+            ) : null}
+
+            {activeSidebarTab === 'source-output' ? (
+              <section
+                id="pcSidebarPanel-source-output"
+                role="tabpanel"
+                aria-labelledby="pcSidebarTab-source-output"
+                className="pcRailTabPanel"
               >
-                <span className="pcPillLeft">
-                  <Quote size={16} />
-                  <span>Fix Quotes</span>
-                </span>
-                <span className="pcPillState">{fixQuotesEnabled ? 'On' : 'Off'}</span>
-              </button>
+                <p className="pcLabel">Source Preset</p>
+                <p className="pcQuickHint">Tell PasteClean where this copy came from.</p>
+                <div className="pcSourcePresetGrid">
+                  {SOURCE_PRESET_OPTIONS.map((preset) => (
+                    <button
+                      key={`quick-source-${preset.id}`}
+                      type="button"
+                      className={`pcSourcePresetButton ${preset.id === sourcePreset ? 'pcSourcePresetButtonActive' : ''}`}
+                      onClick={() => handleSourcePresetChange(preset.id)}
+                    >
+                      <strong>{preset.shortLabel}</strong>
+                      <span>{preset.id === DEFAULT_SOURCE_PRESET ? 'Mode-only cleanup' : preset.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="pcSourcePresetAssist">{sourcePresetAssistText}</p>
+                <p className="pcSourcePresetAssist">{sourceMemoryAssistText}</p>
 
-              <button
-                type="button"
-                className={`pcPillToggle ${stripUrlsEnabled ? 'pcPillToggleActive' : ''}`}
-                onClick={handleToggleUrlRules}
-              >
-                <span className="pcPillLeft">
-                  <Link2Off size={16} />
-                  <span>Strip URLs</span>
-                </span>
-                <span className="pcPillState">{stripUrlsEnabled ? 'On' : 'Off'}</span>
-              </button>
-            </div>
-
-            <p className="pcSubLabel">Source Preset</p>
-            <p className="pcQuickHint">Tell PasteClean where this copy came from.</p>
-            <div className="pcSourcePresetGrid">
-              {SOURCE_PRESET_OPTIONS.map((preset) => (
-                <button
-                  key={`quick-source-${preset.id}`}
-                  type="button"
-                  className={`pcSourcePresetButton ${preset.id === sourcePreset ? 'pcSourcePresetButtonActive' : ''}`}
-                  onClick={() => handleSourcePresetChange(preset.id)}
-                >
-                  <strong>{preset.shortLabel}</strong>
-                  <span>{preset.id === DEFAULT_SOURCE_PRESET ? 'Mode-only cleanup' : preset.label}</span>
-                </button>
-              ))}
-            </div>
-            <p className="pcSourcePresetAssist">{sourcePresetAssistText}</p>
-            <p className="pcSourcePresetAssist">{sourceMemoryAssistText}</p>
-
-            <p className="pcSubLabel">Output Destination</p>
-            <p className="pcQuickHint">Tell PasteClean where the cleaned text is going next.</p>
-            <div className="pcSourcePresetGrid">
-              {DESTINATION_PRESET_OPTIONS.map((preset) => (
-                <button
-                  key={`quick-destination-${preset.id}`}
-                  type="button"
-                  className={`pcSourcePresetButton ${preset.id === destinationPreset ? 'pcSourcePresetButtonActive' : ''}`}
-                  onClick={() => handleDestinationPresetChange(preset.id)}
-                >
-                  <strong>{preset.shortLabel}</strong>
-                  <span>{preset.label}</span>
-                </button>
-              ))}
-            </div>
-            <p className="pcSourcePresetAssist">{destinationPresetAssistText}</p>
-          </article>
-
-          <article className="pcCard">
-            <p className="pcLabel">Stats</p>
-            <div className="pcStatsGrid">
-              <div>
-                <strong>{input.length.toLocaleString()}</strong>
-                <span>Characters</span>
-              </div>
-              <div>
-                <strong>{inputWords.toLocaleString()}</strong>
-                <span>Words</span>
-              </div>
-              <div>
-                <strong>{outputWords.toLocaleString()}</strong>
-                <span>Output Words</span>
-              </div>
-              <div>
-                <strong>{history.length.toLocaleString()}</strong>
-                <span>Saved Pastes</span>
-              </div>
-              <div>
-                <strong>{projectBoards.length.toLocaleString()}</strong>
-                <span>Boards</span>
-              </div>
-              <div>
-                <strong>{activeProjectBoardItems.length.toLocaleString()}</strong>
-                <span>Active Board Items</span>
-              </div>
-            </div>
-          </article>
-
-          <article className="pcCard">
-            <p className="pcLabel">Project Board</p>
-            <p className="pcQuickHint">Keep related pastes together locally on this device.</p>
-            <div className="pcBoardControls">
-              <select
-                className="pcBoardSelect"
-                value={activeProjectBoardId ?? ''}
-                onChange={(event) => setActiveProjectBoardId(event.target.value || null)}
-              >
-                <option value="">No board selected</option>
-                {projectBoards.map((board) => (
-                  <option key={board.id} value={board.id}>
-                    {board.name}
-                  </option>
-                ))}
-              </select>
-              <div className="pcInlineFieldRow">
-                <input
-                  type="text"
-                  className="pcCustomRuleInput"
-                  placeholder={buildDefaultBoardName(projectBoards.length)}
-                  value={draftBoardName}
-                  onChange={(event) => setDraftBoardName(event.target.value)}
-                />
-                <button type="button" className="pcSecondaryButton" onClick={handleCreateProjectBoard}>
-                  New board
-                </button>
-              </div>
-              <button
-                type="button"
-                className="pcSecondaryButton pcBoardSaveButton"
-                onClick={handleSaveToProjectBoard}
-                disabled={boardSaveDisabled}
-              >
-                Save current paste
-              </button>
-            </div>
-            {activeProjectBoard ? (
-              <>
-                <p className="pcSourcePresetAssist">
-                  <strong>{activeProjectBoard.name}:</strong> {activeProjectBoardItems.length} saved item
-                  {activeProjectBoardItems.length === 1 ? '' : 's'}.
-                </p>
-                {boardPreviewItems.length === 0 ? (
-                  <p className="pcBoardEmpty">Save the current workspace to start this board.</p>
-                ) : (
-                  <div className="pcBoardList">
-                    {boardPreviewItems.map((item) => (
+                <div className="pcRailPanelSection">
+                  <p className="pcLabel">Output Destination</p>
+                  <p className="pcQuickHint">Tell PasteClean where the cleaned text is going next.</p>
+                  <div className="pcSourcePresetGrid">
+                    {DESTINATION_PRESET_OPTIONS.map((preset) => (
                       <button
-                        key={item.id}
+                        key={`quick-destination-${preset.id}`}
                         type="button"
-                        className="pcBoardItem"
-                        onClick={() => handleRestoreBoardItem(item)}
+                        className={`pcSourcePresetButton ${preset.id === destinationPreset ? 'pcSourcePresetButtonActive' : ''}`}
+                        onClick={() => handleDestinationPresetChange(preset.id)}
                       >
-                        <strong>{item.modeLabel}</strong>
-                        <span>{item.input.slice(0, 56) || 'Empty paste'}</span>
-                        <small>
-                          {item.sourcePresetLabel !== 'No preset' ? `${item.sourcePresetLabel} / ` : ''}
-                          {item.destinationPresetLabel !== 'No destination' ? `${item.destinationPresetLabel} / ` : ''}
-                          {formatSavedTimestamp(item.savedAt)}
-                        </small>
+                        <strong>{preset.shortLabel}</strong>
+                        <span>{preset.label}</span>
                       </button>
                     ))}
                   </div>
-                )}
-              </>
-            ) : (
-              <p className="pcBoardEmpty">Create a board when you want to group related pastes locally.</p>
-            )}
+                  <p className="pcSourcePresetAssist">{destinationPresetAssistText}</p>
+                </div>
+              </section>
+            ) : null}
+
+            {activeSidebarTab === 'board' ? (
+              <section
+                id="pcSidebarPanel-board"
+                role="tabpanel"
+                aria-labelledby="pcSidebarTab-board"
+                className="pcRailTabPanel"
+              >
+                <p className="pcLabel">Stats</p>
+                <div className="pcStatsGrid">
+                  <div>
+                    <strong>{input.length.toLocaleString()}</strong>
+                    <span>Characters</span>
+                  </div>
+                  <div>
+                    <strong>{inputWords.toLocaleString()}</strong>
+                    <span>Words</span>
+                  </div>
+                  <div>
+                    <strong>{outputWords.toLocaleString()}</strong>
+                    <span>Output Words</span>
+                  </div>
+                  <div>
+                    <strong>{history.length.toLocaleString()}</strong>
+                    <span>Saved Pastes</span>
+                  </div>
+                  <div>
+                    <strong>{projectBoards.length.toLocaleString()}</strong>
+                    <span>Boards</span>
+                  </div>
+                  <div>
+                    <strong>{activeProjectBoardItems.length.toLocaleString()}</strong>
+                    <span>Active Board Items</span>
+                  </div>
+                </div>
+
+                <div className="pcRailPanelSection">
+                  <p className="pcLabel">Project Board</p>
+                  <p className="pcQuickHint">Keep related pastes together locally on this device.</p>
+                  <div className="pcBoardControls">
+                    <select
+                      className="pcBoardSelect"
+                      value={activeProjectBoardId ?? ''}
+                      onChange={(event) => setActiveProjectBoardId(event.target.value || null)}
+                    >
+                      <option value="">No board selected</option>
+                      {projectBoards.map((board) => (
+                        <option key={board.id} value={board.id}>
+                          {board.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pcInlineFieldRow">
+                      <input
+                        type="text"
+                        className="pcCustomRuleInput"
+                        placeholder={buildDefaultBoardName(projectBoards.length)}
+                        value={draftBoardName}
+                        onChange={(event) => setDraftBoardName(event.target.value)}
+                      />
+                      <button type="button" className="pcSecondaryButton" onClick={handleCreateProjectBoard}>
+                        New board
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="pcSecondaryButton pcBoardSaveButton"
+                      onClick={handleSaveToProjectBoard}
+                      disabled={boardSaveDisabled}
+                    >
+                      Save current paste
+                    </button>
+                  </div>
+                  {activeProjectBoard ? (
+                    <>
+                      <p className="pcSourcePresetAssist">
+                        <strong>{activeProjectBoard.name}:</strong> {activeProjectBoardItems.length} saved item
+                        {activeProjectBoardItems.length === 1 ? '' : 's'}.
+                      </p>
+                      {boardPreviewItems.length === 0 ? (
+                        <p className="pcBoardEmpty">Save the current workspace to start this board.</p>
+                      ) : (
+                        <div className="pcBoardList">
+                          {boardPreviewItems.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className="pcBoardItem"
+                              onClick={() => handleRestoreBoardItem(item)}
+                            >
+                              <strong>{item.modeLabel}</strong>
+                              <span>{item.input.slice(0, 56) || 'Empty paste'}</span>
+                              <small>
+                                {item.sourcePresetLabel !== 'No preset' ? `${item.sourcePresetLabel} / ` : ''}
+                                {item.destinationPresetLabel !== 'No destination' ? `${item.destinationPresetLabel} / ` : ''}
+                                {formatSavedTimestamp(item.savedAt)}
+                              </small>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="pcBoardEmpty">Create a board when you want to group related pastes locally.</p>
+                  )}
+                </div>
+              </section>
+            ) : null}
           </article>
         </aside>
 

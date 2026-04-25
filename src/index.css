@@ -815,6 +815,60 @@ html[data-theme='dark'] .pcLegalBackdrop {
   padding: 1.05rem;
 }
 
+.pcRailPanelCard {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.pcRailTabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.pcRailTab {
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0.44rem 0.35rem;
+  min-height: 2.35rem;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.2rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.15;
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcRailTab:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcRailTabActive {
+  background: var(--accent);
+  color: #102017;
+}
+
+.pcRailTabPanel {
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+}
+
+.pcRailPanelSection {
+  margin-top: 0.45rem;
+  padding-top: 0.75rem;
+  border-top: 2px dashed var(--line);
+}
+
 .pcLabel {
   margin: 0;
   text-transform: uppercase;
@@ -1831,7 +1885,7 @@ html[data-theme='dark'] .pcBoardEmpty {
   }
 
   .pcRail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
