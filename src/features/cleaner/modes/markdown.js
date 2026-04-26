@@ -235,6 +235,7 @@ function postprocess(text, options = {}) {
 export const markdownMode = {
   id: 'markdown',
   label: 'Markdown',
+  displayLabel: 'Markdown',
   description: 'Preserves headings, lists, and spacing while cleaning paste damage.',
   rules: [
     'Headings and lists stay in Markdown form.',

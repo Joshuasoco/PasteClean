@@ -41,6 +41,11 @@ export function getModeDefinition(modeId) {
   return MODE_MAP.get(modeId) ?? MODE_MAP.get('plain')
 }
 
+export function getModeDisplayLabel(modeId) {
+  const mode = getModeDefinition(modeId)
+  return mode.displayLabel ?? mode.label
+}
+
 export function getModeDefaultCleaningOptions(modeId) {
   return buildModeDefaultCleaningOptions(getModeDefinition(modeId))
 }

@@ -1,5 +1,6 @@
 import {
   applyFormatMode,
+  getModeDisplayLabel,
   getModeDefinition,
   getModeDefaultCleaningOptions,
   runModeStage,
@@ -138,7 +139,7 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
     urlChanges: urlResult.urlChanges,
     urlSummary: urlResult.summary,
     mode: modeDefinition.id,
-    modeLabel: modeDefinition.label,
+    modeLabel: getModeDisplayLabel(modeDefinition.id),
     modeDescription: modeDefinition.description,
     modeRules: modeDefinition.rules,
     sourcePreset: sourcePreset.id,

@@ -24,7 +24,7 @@ import {
   getDestinationPresetDefinition,
   getDestinationPresets,
 } from './features/cleaner/destinationPresets'
-import { getModeDefinition, getModes } from './features/cleaner/modes'
+import { getModeDefinition, getModeDisplayLabel, getModes } from './features/cleaner/modes'
 import {
   PROTECTED_REGION_ACTIONS,
   countProtectedRegions,
@@ -109,14 +109,6 @@ const LEGAL_CONTENT = {
 
 function countWords(value) {
   return value.trim() ? value.trim().split(/\s+/).length : 0
-}
-
-function getModeLabel(modeId, fallback) {
-  if (modeId === 'plain') return 'Writing'
-  if (modeId === 'code') return 'Code'
-  if (modeId === 'markdown') return 'Markdown'
-  if (modeId === 'email') return 'Email'
-  return fallback
 }
 
 function createRuleId() {
@@ -385,10 +377,7 @@ function buildOutputChangeSummary(cleaningResult, diffStats) {
       cleaningResult.sourcePreset !== DEFAULT_SOURCE_PRESET
         ? `${cleaningResult.sourcePresetLabel} preset active${
             cleaningResult.sourcePresetSuggestedMode && cleaningResult.sourcePresetSuggestedMode !== cleaningResult.mode
-              ? `. Best paired with ${getModeLabel(
-                  cleaningResult.sourcePresetSuggestedMode,
-                  getModeDefinition(cleaningResult.sourcePresetSuggestedMode).label
-                )} mode.`
+              ? `. Best paired with ${getModeDisplayLabel(cleaningResult.sourcePresetSuggestedMode)} mode.`
               : '.'
           }${destinationNote ? ` ${destinationNote}` : ''}`
         : destinationNote,
@@ -764,8 +753,7 @@ function App() {
       return
     }
 
-    const nextModeDefinition = getModeDefinition(nextMode)
-    const nextModeLabel = getModeLabel(nextMode, nextModeDefinition.label)
+    const nextModeLabel = getModeDisplayLabel(nextMode)
 
     startTransition(() => {
       setCleaningOptions((current) => syncCleaningOptionsForModeChange(current, mode, nextMode))
@@ -818,7 +806,7 @@ function App() {
       return
     }
 
-    const nextModeLabel = getModeLabel(nextMode, getModeDefinition(nextMode).label)
+    const nextModeLabel = getModeDisplayLabel(nextMode)
     const nextDestinationLabel = getDestinationPresetDefinition(nextDestination).label
 
     if (rememberedSource) {
@@ -1325,19 +1313,16 @@ function App() {
     Boolean(cleaningOptions.unwrapRedirects) &&
     Boolean(cleaningOptions.decodeReadableUrls)
   const currentModeDefinition = getModeDefinition(mode)
-  const currentModeLabel = getModeLabel(mode, currentModeDefinition.label)
+  const currentModeLabel = getModeDisplayLabel(mode)
   const currentSourcePresetDefinition = getSourcePresetDefinition(sourcePreset)
   const currentDestinationPresetDefinition = getDestinationPresetDefinition(destinationPreset)
   const currentSourceMemory = sourceMemory[sourcePreset]
   const currentSourcePresetSuggestedModeLabel =
     currentSourcePresetDefinition.suggestedMode && currentSourcePresetDefinition.suggestedMode !== mode
-      ? getModeLabel(
-          currentSourcePresetDefinition.suggestedMode,
-          getModeDefinition(currentSourcePresetDefinition.suggestedMode).label
-        )
+      ? getModeDisplayLabel(currentSourcePresetDefinition.suggestedMode)
       : ''
   const rememberedSourceModeLabel = currentSourceMemory?.preferredMode
-    ? getModeLabel(currentSourceMemory.preferredMode, getModeDefinition(currentSourceMemory.preferredMode).label)
+    ? getModeDisplayLabel(currentSourceMemory.preferredMode)
     : ''
   const rememberedDestinationLabel =
     currentSourceMemory?.preferredDestination &&
@@ -1386,7 +1371,7 @@ function App() {
       ? 'This mode uses the shared cleanup controls only.'
       : `${modeSafeToggles.filter((toggle) => cleaningOptions[toggle.key]).length}/${modeSafeToggles.length} safeguards on`
   const modeGuideDefinition = getModeDefinition(activeModeGuide ?? mode)
-  const modeGuideLabel = getModeLabel(modeGuideDefinition.id, modeGuideDefinition.label)
+  const modeGuideLabel = getModeDisplayLabel(modeGuideDefinition.id)
   const modeGuideToggles = getModeSafeToggles(modeGuideDefinition.id)
   const hasInput = Boolean(input.trim())
   const hasHistory = history.length > 0
@@ -1483,7 +1468,7 @@ function App() {
               className={`pcTopTab ${option.id === mode ? 'pcTopTabActive' : ''}`}
               onClick={() => handleModeChange(option.id)}
             >
-              {getModeLabel(option.id, option.label)}
+              {getModeDisplayLabel(option.id)}
             </button>
           ))}
         </nav>
@@ -1607,7 +1592,7 @@ function App() {
                       className={`pcMenuPill ${option.id === mode ? 'pcMenuPillActive' : ''}`}
                       onClick={() => handleModeChange(option.id)}
                     >
-                      {getModeLabel(option.id, option.label)}
+                      {getModeDisplayLabel(option.id)}
                     </button>
                   ))}
                 </div>
@@ -2382,7 +2367,7 @@ function App() {
                   className={`pcMenuPill ${option.id === modeGuideDefinition.id ? 'pcMenuPillActive' : ''}`}
                   onClick={() => setActiveModeGuide(option.id)}
                 >
-                  {getModeLabel(option.id, option.label)}
+                  {getModeDisplayLabel(option.id)}
                 </button>
               ))}
             </div>

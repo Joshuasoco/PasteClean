@@ -225,6 +225,7 @@ function postprocess(text, options = {}) {
 export const codeMode = {
   id: 'code',
   label: 'Code',
+  displayLabel: 'Code',
   description: 'Preserves indentation and removes copied line numbers.',
   rules: [
     'Common line-number prefixes are removed.',

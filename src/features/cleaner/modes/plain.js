@@ -97,6 +97,7 @@ function transform(text, options = {}) {
 export const plainMode = {
   id: 'plain',
   label: 'Plain text',
+  displayLabel: 'Writing',
   description: 'Conservative writing cleanup for prose. It removes copied formatting markers by default and leaves stronger HTML and wrapped-URL cleanup behind optional toggles.',
   rules: [
     'Copied Markdown markers, quote prefixes, and list bullets are removed.',

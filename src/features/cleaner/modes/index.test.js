@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { applyFormatMode, getModeDefinition, getModes } from './index'
+import { applyFormatMode, getModeDefinition, getModeDisplayLabel, getModes } from './index'
 
 describe('cleaner modes', () => {
   it('falls back to plain mode definition for unknown mode ids', () => {
     const mode = getModeDefinition('does-not-exist')
 
     expect(mode.id).toBe('plain')
+  })
+
+  it('returns mode display labels with plain mapped to Writing', () => {
+    expect(getModeDisplayLabel('plain')).toBe('Writing')
+    expect(getModeDisplayLabel('markdown')).toBe('Markdown')
+    expect(getModeDisplayLabel('code')).toBe('Code')
+    expect(getModeDisplayLabel('email')).toBe('Email')
+  })
+
+  it('falls back safely to the plain mode display label for unknown ids', () => {
+    expect(getModeDisplayLabel('does-not-exist')).toBe('Writing')
   })
 
   it('plain mode removes markdown structural prefixes', () => {

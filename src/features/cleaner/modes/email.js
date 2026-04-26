@@ -211,6 +211,7 @@ function transform(text, options = {}) {
 export const emailMode = {
   id: 'email',
   label: 'Email',
+  displayLabel: 'Email',
   description: 'Keeps the latest message and removes quoted reply chains.',
   rules: [
     'Quoted email replies are removed.',
