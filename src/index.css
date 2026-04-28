@@ -266,7 +266,10 @@ html[data-theme='dark'] .pcMenuRuleText small,
 html[data-theme='dark'] .pcMenuItem span,
 html[data-theme='dark'] .pcOutputState span,
 html[data-theme='dark'] .pcOutputChangesTop span,
+html[data-theme='dark'] .pcOutputChangeSectionTitle,
 html[data-theme='dark'] .pcOutputChangesNote,
+html[data-theme='dark'] .pcOutputWarningItem,
+html[data-theme='dark'] .pcSummaryToggle small,
 html[data-theme='dark'] .pcOutputEmptyState p,
 html[data-theme='dark'] .pcDiffSummary,
 html[data-theme='dark'] .pcDiffSegmentMuted,
@@ -304,6 +307,8 @@ html[data-theme='dark'] .pcStatusPillWarn,
 html[data-theme='dark'] .pcMenuWarning,
 html[data-theme='dark'] .pcModeWarning,
 html[data-theme='dark'] .pcOutputStateWarn,
+html[data-theme='dark'] .pcOutputWarningList,
+html[data-theme='dark'] .pcSummaryToggleWarn,
 html[data-theme='dark'] .pcCustomRuleDelete {
   background: #4b2b26;
 }
@@ -333,6 +338,7 @@ html[data-theme='dark'] .pcPillToggle,
 html[data-theme='dark'] .pcSecondaryButton,
 html[data-theme='dark'] .pcFooterLink,
 html[data-theme='dark'] .pcEditorIconButton,
+html[data-theme='dark'] .pcSummaryToggle,
 html[data-theme='dark'] .pcMenuPill,
 html[data-theme='dark'] .pcMenuRule,
 html[data-theme='dark'] .pcMenuItem,
@@ -1342,6 +1348,48 @@ html[data-theme='dark'] .pcSourcePresetButton span {
   margin-bottom: 0;
 }
 
+.pcPreviewTopActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pcSummaryToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  color: #171717;
+  padding: 0.26rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  box-shadow: 2px 2px 0 var(--line);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.pcSummaryToggle:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.pcSummaryToggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pcSummaryToggle small {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #2b2b2b;
+  text-transform: uppercase;
+}
+
+.pcSummaryToggleWarn {
+  background: #ffe8de;
+}
+
 .pcProtectToolbar {
   display: grid;
   gap: 0.58rem;
@@ -1594,6 +1642,19 @@ html[data-theme='dark'] .pcBoardEmpty {
   gap: 0.42rem;
 }
 
+.pcOutputChangeSection {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.pcOutputChangeSectionTitle {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #363636;
+}
+
 .pcOutputChangeChip {
   display: inline-flex;
   align-items: center;
@@ -1607,11 +1668,35 @@ html[data-theme='dark'] .pcBoardEmpty {
   color: #232323;
 }
 
+.pcOutputChangeChipMuted {
+  opacity: 0.72;
+}
+
 .pcOutputChangesNote {
   margin: 0;
   font-size: 0.82rem;
   color: #2e2e2e;
   line-height: 1.45;
+}
+
+.pcOutputWarningList {
+  display: grid;
+  gap: 0.34rem;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  background: #ffe7de;
+}
+
+.pcOutputWarningItem {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #2e2e2e;
+}
+
+.pcSummaryCard {
+  margin-top: 0.2rem;
 }
 
 .pcEditor {

@@ -24,6 +24,7 @@ import {
   getDestinationPresetDefinition,
   getDestinationPresets,
 } from './features/cleaner/destinationPresets'
+import { buildOutputChangeSummary } from './features/cleaner/outputSummary'
 import { getModeDefinition, getModeDisplayLabel, getModes } from './features/cleaner/modes'
 import {
   PROTECTED_REGION_ACTIONS,
@@ -324,66 +325,6 @@ function getModeWarnings(modeId, options) {
   return warnings
 }
 
-function getSummaryStatValue(summary, label) {
-  const matchedStat = summary?.stats?.find((entry) => entry.label === label)
-  return typeof matchedStat?.value === 'number' ? matchedStat.value : 0
-}
-
-function formatSummaryItem(label, count) {
-  if (!count) {
-    return null
-  }
-
-  return `${label} (${count})`
-}
-
-function buildOutputChangeSummary(cleaningResult, diffStats) {
-  if (!cleaningResult || !diffStats.changed) {
-    return {
-      changed: false,
-      headline: 'No changes needed for current rules.',
-      detail: '',
-      items: [],
-      note: '',
-    }
-  }
-
-  const items = [
-    formatSummaryItem('Formatting removed', getSummaryStatValue(cleaningResult.modeSummary, 'Formatting markers removed')),
-    formatSummaryItem('HTML tags removed', getSummaryStatValue(cleaningResult.modeSummary, 'HTML tags removed')),
-    formatSummaryItem('Protected regions', cleaningResult.protectedSummary?.totalRegions ?? 0),
-    formatSummaryItem('Source fixes', cleaningResult.sourceSummary?.changesApplied ?? 0),
-    formatSummaryItem('Entities decoded', cleaningResult.sharedSummary?.entitiesDecoded ?? 0),
-    formatSummaryItem('Quotes normalized', cleaningResult.sharedSummary?.punctuationNormalized ?? 0),
-    formatSummaryItem('Invisible characters removed', cleaningResult.sharedSummary?.invisibleCharsRemoved ?? 0),
-    formatSummaryItem('Wrapped URLs repaired', cleaningResult.urlSummary?.wrappedUrlsRepaired ?? 0),
-    formatSummaryItem('URLs cleaned', cleaningResult.urlSummary?.urlsChanged ?? 0),
-    formatSummaryItem('Tracking params removed', cleaningResult.urlSummary?.trackingParamsRemoved ?? 0),
-    formatSummaryItem('Custom replacements applied', cleaningResult.customRuleSummary?.replacementsMade ?? 0),
-    formatSummaryItem('Destination tweaks', cleaningResult.destinationSummary?.changesApplied ?? 0),
-  ].filter(Boolean)
-
-  const destinationNote =
-    cleaningResult.destinationPreset && cleaningResult.destinationPreset !== DEFAULT_DESTINATION_PRESET
-      ? `${cleaningResult.destinationPresetLabel} destination active.`
-      : ''
-
-  return {
-    changed: true,
-    headline: 'Changes made',
-    detail: `${diffStats.removedCount} removals, ${diffStats.addedCount} additions`,
-    items: items.length > 0 ? items.slice(0, 6) : ['Text updated for current rules.'],
-    note:
-      cleaningResult.sourcePreset !== DEFAULT_SOURCE_PRESET
-        ? `${cleaningResult.sourcePresetLabel} preset active${
-            cleaningResult.sourcePresetSuggestedMode && cleaningResult.sourcePresetSuggestedMode !== cleaningResult.mode
-              ? `. Best paired with ${getModeDisplayLabel(cleaningResult.sourcePresetSuggestedMode)} mode.`
-              : '.'
-          }${destinationNote ? ` ${destinationNote}` : ''}`
-        : destinationNote,
-  }
-}
-
 function App() {
   const [mode, setMode] = useState(DEFAULT_MODE)
   const [input, setInput] = useState(() => getModeDefinition(DEFAULT_MODE).sample)
@@ -412,6 +353,7 @@ function App() {
   const [isProtectPanelOpen, setIsProtectPanelOpen] = useState(false)
   const [recoverState, setRecoverState] = useState(null)
   const [displayedResult, setDisplayedResult] = useState(null)
+  const [isSummaryPanelOpen, setIsSummaryPanelOpen] = useState(false)
   const [draftRuleFind, setDraftRuleFind] = useState('')
   const [draftRuleReplace, setDraftRuleReplace] = useState('')
   const [draftBoardName, setDraftBoardName] = useState('')
@@ -470,6 +412,14 @@ function App() {
 
     setDisplayedResult(workspaceResult)
   }, [livePreviewEnabled, workspaceResult])
+
+  useEffect(() => {
+    if (displayedResult?.cleanedText?.trim()) {
+      return
+    }
+
+    setIsSummaryPanelOpen(false)
+  }, [displayedResult])
 
   useEffect(() => {
     if (sourcePreset === DEFAULT_SOURCE_PRESET) {
@@ -1376,6 +1326,13 @@ function App() {
   const hasInput = Boolean(input.trim())
   const hasHistory = history.length > 0
   const hasDisplayedOutput = Boolean(displayedOutput.trim())
+  const summaryRuleCount = outputChangeSummary.rulesRun.global.length + outputChangeSummary.rulesRun.mode.length
+  const summaryChangeCount = outputChangeSummary.globalItems.length + outputChangeSummary.modeItems.length
+  const summaryWarningCount = outputChangeSummary.semanticWarnings.length
+  const summaryToggleLabel = isSummaryPanelOpen ? 'Hide Summary' : 'Show Summary'
+  const summaryToggleDisabled = !hasDisplayedOutput || !outputChangeSummary.visible
+  const summaryWarningLabel =
+    summaryWarningCount === 1 ? '1 review note' : `${summaryWarningCount} review notes`
   const activeProjectBoard = projectBoards.find((board) => board.id === activeProjectBoardId) ?? null
   const activeProjectBoardItems = activeProjectBoard?.items ?? []
   const boardPreviewItems = activeProjectBoardItems.slice(0, 3)
@@ -2209,9 +2166,24 @@ function App() {
             <article className="pcEditorCard pcEditorCardPreview">
               <div className="pcEditorCardTop">
                 <p className="pcEditorLabel pcEditorLabelLive">Live Preview</p>
-                <span className={`pcStatusPill pcStatusPill${outputBadgeTone.charAt(0).toUpperCase()}${outputBadgeTone.slice(1)}`}>
-                  {outputBadgeLabel}
-                </span>
+                <div className="pcPreviewTopActions">
+                  <button
+                    type="button"
+                    className={`pcSummaryToggle ${summaryWarningCount > 0 ? 'pcSummaryToggleWarn' : ''}`}
+                    onClick={() => setIsSummaryPanelOpen((current) => !current)}
+                    disabled={summaryToggleDisabled}
+                    aria-expanded={isSummaryPanelOpen}
+                    aria-controls="pcOutputSummaryCard"
+                  >
+                    <span>{summaryToggleLabel}</span>
+                    {outputChangeSummary.visible ? (
+                      <small>{summaryRuleCount + summaryChangeCount} items{summaryWarningCount ? ` • ${summaryWarningLabel}` : ''}</small>
+                    ) : null}
+                  </button>
+                  <span className={`pcStatusPill pcStatusPill${outputBadgeTone.charAt(0).toUpperCase()}${outputBadgeTone.slice(1)}`}>
+                    {outputBadgeLabel}
+                  </span>
+                </div>
               </div>
               {showOutputStatus ? (
                 <div
@@ -2221,26 +2193,6 @@ function App() {
                 >
                   <strong>{outputStatusTitle}</strong>
                   <span>{outputStatusBody}</span>
-                </div>
-              ) : null}
-              {outputChangeSummary.changed ? (
-                <div
-                  className={`pcOutputChanges ${outputChangeSummary.changed ? 'pcOutputChangesActive' : 'pcOutputChangesQuiet'}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="pcOutputChangesTop">
-                    <strong>{outputChangeSummary.headline}</strong>
-                    {outputChangeSummary.detail ? <span>{outputChangeSummary.detail}</span> : null}
-                  </div>
-                  <div className="pcOutputChangeList">
-                    {outputChangeSummary.items.map((item) => (
-                      <span key={item} className="pcOutputChangeChip">
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                  {outputChangeSummary.note ? <p className="pcOutputChangesNote">{outputChangeSummary.note}</p> : null}
                 </div>
               ) : null}
               {hasDisplayedOutput ? (
@@ -2258,6 +2210,83 @@ function App() {
               )}
             </article>
           </div>
+
+          {hasDisplayedOutput && outputChangeSummary.visible && isSummaryPanelOpen ? (
+            <article
+              id="pcOutputSummaryCard"
+              className={`pcEditorCard pcOutputChanges ${outputChangeSummary.changed ? 'pcOutputChangesActive' : 'pcOutputChangesQuiet'} pcSummaryCard`}
+              role="status"
+              aria-live="polite"
+            >
+              <div className="pcOutputChangesTop">
+                <strong>{outputChangeSummary.headline}</strong>
+                {outputChangeSummary.detail ? <span>{outputChangeSummary.detail}</span> : null}
+              </div>
+              <div className="pcOutputChangeSection">
+                <p className="pcOutputChangeSectionTitle">Rules run (global)</p>
+                <div className="pcOutputChangeList">
+                  {outputChangeSummary.rulesRun.global.length > 0 ? (
+                    outputChangeSummary.rulesRun.global.map((item) => (
+                      <span key={item} className="pcOutputChangeChip">
+                        {item}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="pcOutputChangeChip pcOutputChangeChipMuted">No global cleanup rules were enabled.</span>
+                  )}
+                </div>
+              </div>
+              <div className="pcOutputChangeSection">
+                <p className="pcOutputChangeSectionTitle">Rules run ({displayedResult?.modeLabel ?? 'Mode'})</p>
+                <div className="pcOutputChangeList">
+                  {outputChangeSummary.rulesRun.mode.map((item) => (
+                    <span key={item} className="pcOutputChangeChip">
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="pcOutputChangeSection">
+                <p className="pcOutputChangeSectionTitle">Global cleanup changes</p>
+                <div className="pcOutputChangeList">
+                  {outputChangeSummary.globalItems.length > 0 ? (
+                    outputChangeSummary.globalItems.map((item) => (
+                      <span key={item} className="pcOutputChangeChip">
+                        {item}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="pcOutputChangeChip pcOutputChangeChipMuted">No global cleanup edits detected.</span>
+                  )}
+                </div>
+              </div>
+              <div className="pcOutputChangeSection">
+                <p className="pcOutputChangeSectionTitle">Mode-specific changes</p>
+                <div className="pcOutputChangeList">
+                  {outputChangeSummary.modeItems.length > 0 ? (
+                    outputChangeSummary.modeItems.map((item) => (
+                      <span key={item} className="pcOutputChangeChip">
+                        {item}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="pcOutputChangeChip pcOutputChangeChipMuted">No mode-specific edits detected.</span>
+                  )}
+                </div>
+              </div>
+              {outputChangeSummary.semanticWarnings.length > 0 ? (
+                <div className="pcOutputWarningList" role="alert">
+                  <p className="pcOutputChangeSectionTitle">Review notes</p>
+                  {outputChangeSummary.semanticWarnings.map((warning) => (
+                    <p key={warning} className="pcOutputWarningItem">
+                      {warning}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              {outputChangeSummary.note ? <p className="pcOutputChangesNote">{outputChangeSummary.note}</p> : null}
+            </article>
+          ) : null}
 
           <article className="pcEditorCard pcDiffCard" aria-live="polite">
             <div className="pcDiffHeader">
