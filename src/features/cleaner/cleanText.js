@@ -105,6 +105,14 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
   } = options ?? {}
   const cleaningOptions = resolveCleaningOptions(mode, optionValues)
   const modeDefinition = getModeDefinition(mode)
+  const shouldRunSharedCleanup =
+    cleaningOptions.decodeHtmlEntities ||
+    cleaningOptions.removeAiEmDash ||
+    cleaningOptions.normalizePunctuation ||
+    cleaningOptions.removeEmoji ||
+    cleaningOptions.stripInvisibleChars
+  const shouldRunUrlCleanup =
+    cleaningOptions.stripTrackingParams || cleaningOptions.unwrapRedirects || cleaningOptions.decodeReadableUrls
   const protectedRegions = extractProtectedRegions(original, {
     regions: structuredProtectedRegions,
     resolveCodeRegion: (regionText) =>
@@ -122,9 +130,32 @@ export function cleanText(value, mode = 'plain', options = getDefaultCleaningOpt
   })
   const sourcePreset = getSourcePresetDefinition(sourcePresetId)
   const preprocessed = runModeStage(modeDefinition.id, 'preprocess', sourceResult.text, cleaningOptions)
-  const sharedCleanupResult = applySharedCleanup(preprocessed.text, cleaningOptions)
+  const sharedCleanupResult = shouldRunSharedCleanup
+    ? applySharedCleanup(preprocessed.text, cleaningOptions)
+    : {
+        text: preprocessed.text,
+        summary: {
+          entitiesDecoded: 0,
+          aiEmDashesRemoved: 0,
+          punctuationNormalized: 0,
+          emojiRemoved: 0,
+          invisibleCharsRemoved: 0,
+        },
+      }
   const modeResult = applyFormatMode(sharedCleanupResult.text, modeDefinition.id, cleaningOptions)
-  const urlResult = cleanUrlsInText(modeResult.text, cleaningOptions)
+  const urlResult = shouldRunUrlCleanup
+    ? cleanUrlsInText(modeResult.text, cleaningOptions)
+    : {
+        text: modeResult.text,
+        urlChanges: [],
+        summary: {
+          urlsChanged: 0,
+          wrappedUrlsRepaired: 0,
+          trackingParamsRemoved: 0,
+          redirectsUnwrapped: 0,
+          urlsDecoded: 0,
+        },
+      }
   const postprocessed = runModeStage(modeDefinition.id, 'postprocess', urlResult.text, cleaningOptions)
   const beforeCustomRestore = restoreProtectedRegions(postprocessed.text, protectedRegions.beforeCustom)
   const customRuleResult = applyCustomRules(beforeCustomRestore, customRules)

@@ -1,4 +1,5 @@
 const URL_PATTERN = /\bhttps?:\/\/[^\s<>"']+/gi
+const URL_SCAN_PATTERN = /\bhttps?:\/\/[^\s<>"']+/i
 const TRACKING_PARAM_NAMES = new Set([
   'fbclid',
   'gclid',
@@ -220,6 +221,13 @@ function repairWrappedUrlsInText(value, enabled = false) {
     }
   }
 
+  if (!value.includes('http://') && !value.includes('https://')) {
+    return {
+      text: value,
+      wrappedUrlsRepaired: 0,
+    }
+  }
+
   let text = ''
   let index = 0
   let wrappedUrlsRepaired = 0
@@ -343,6 +351,20 @@ function cleanSingleUrl(rawUrl, options = {}) {
 }
 
 export function cleanUrlsInText(value, options = {}) {
+  if (!URL_SCAN_PATTERN.test(value) && options.repairWrappedUrls !== true) {
+    return {
+      text: value,
+      urlChanges: [],
+      summary: {
+        urlsChanged: 0,
+        wrappedUrlsRepaired: 0,
+        trackingParamsRemoved: 0,
+        redirectsUnwrapped: 0,
+        urlsDecoded: 0,
+      },
+    }
+  }
+
   const urlChanges = []
   const wrappedUrlRepairResult = repairWrappedUrlsInText(value, options.repairWrappedUrls === true)
 

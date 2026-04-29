@@ -248,15 +248,23 @@ export function buildOutputChangeSummary(cleaningResult, diffStats = {}) {
     cleaningResult?.sourcePresetSuggestedMode && cleaningResult.sourcePresetSuggestedMode !== cleaningResult.mode
       ? getModeDisplayLabel(cleaningResult.sourcePresetSuggestedMode)
       : null
+  const scopeNote = 'Shared cleanup and mode-specific cleanup are reported separately.'
 
-  const note =
-    cleaningResult?.sourcePreset && cleaningResult.sourcePreset !== 'none'
-      ? `${cleaningResult?.sourcePresetLabel} preset active${
-          suggestedModeLabel
-            ? `. Best paired with ${suggestedModeLabel} mode.`
-            : '.'
-        }${destinationNote ? ` ${destinationNote}` : ''}`
-      : destinationNote
+  const noteParts = [scopeNote]
+
+  if (cleaningResult?.sourcePreset && cleaningResult.sourcePreset !== 'none') {
+    noteParts.push(
+      `${cleaningResult?.sourcePresetLabel} preset active${
+        suggestedModeLabel ? `. Best paired with ${suggestedModeLabel} mode.` : '.'
+      }`
+    )
+  }
+
+  if (destinationNote) {
+    noteParts.push(destinationNote)
+  }
+
+  const note = noteParts.join(' ')
 
   return {
     changed,

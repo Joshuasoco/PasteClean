@@ -2223,7 +2223,7 @@ function App() {
                 {outputChangeSummary.detail ? <span>{outputChangeSummary.detail}</span> : null}
               </div>
               <div className="pcOutputChangeSection">
-                <p className="pcOutputChangeSectionTitle">Rules run (global)</p>
+                <p className="pcOutputChangeSectionTitle">Shared cleanup rules</p>
                 <div className="pcOutputChangeList">
                   {outputChangeSummary.rulesRun.global.length > 0 ? (
                     outputChangeSummary.rulesRun.global.map((item) => (
@@ -2237,7 +2237,7 @@ function App() {
                 </div>
               </div>
               <div className="pcOutputChangeSection">
-                <p className="pcOutputChangeSectionTitle">Rules run ({displayedResult?.modeLabel ?? 'Mode'})</p>
+                <p className="pcOutputChangeSectionTitle">Mode-specific rules ({displayedResult?.modeLabel ?? 'Mode'})</p>
                 <div className="pcOutputChangeList">
                   {outputChangeSummary.rulesRun.mode.map((item) => (
                     <span key={item} className="pcOutputChangeChip">
@@ -2247,7 +2247,7 @@ function App() {
                 </div>
               </div>
               <div className="pcOutputChangeSection">
-                <p className="pcOutputChangeSectionTitle">Global cleanup changes</p>
+                <p className="pcOutputChangeSectionTitle">Shared cleanup changes</p>
                 <div className="pcOutputChangeList">
                   {outputChangeSummary.globalItems.length > 0 ? (
                     outputChangeSummary.globalItems.map((item) => (

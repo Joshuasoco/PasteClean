@@ -3,6 +3,7 @@ const AI_EM_DASHES = /\u2014/g
 const HTML_ENTITY_PATTERN = /&(?:#\d+|#x[\da-f]+|[a-z][a-z0-9]+);/gi
 const EMOJI_PATTERN =
   /(?:\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*|[#*0-9]\uFE0F?\u20E3)/gu
+const SMART_PUNCTUATION_PATTERN = /[\u2018-\u201F\u2032\u2033\u2035\u2036\u2013\u2015\u2212]/
 
 const SMART_PUNCTUATION_MAP = new Map([
   ['\u2018', "'"],
@@ -86,7 +87,8 @@ export function countLines(value) {
 }
 
 export function applySharedCleanup(value, options = {}) {
-  let text = (value ?? '').replace(/\r\n?/g, '\n')
+  const originalText = value ?? ''
+  let text = originalText.replace(/\r\n?/g, '\n')
   const summary = {
     entitiesDecoded: 0,
     aiEmDashesRemoved: 0,
@@ -95,7 +97,20 @@ export function applySharedCleanup(value, options = {}) {
     invisibleCharsRemoved: 0,
   }
 
-  if (options.decodeHtmlEntities) {
+  if (
+    options.decodeHtmlEntities !== true &&
+    options.removeAiEmDash !== true &&
+    options.normalizePunctuation !== true &&
+    options.removeEmoji !== true &&
+    options.stripInvisibleChars !== true
+  ) {
+    return {
+      text,
+      summary,
+    }
+  }
+
+  if (options.decodeHtmlEntities && text.includes('&')) {
     const decodedText = decodeHtmlEntities(text)
 
     if (decodedText !== text) {
@@ -104,23 +119,23 @@ export function applySharedCleanup(value, options = {}) {
     }
   }
 
-  if (options.removeAiEmDash) {
+  if (options.removeAiEmDash && text.includes('\u2014')) {
     summary.aiEmDashesRemoved = countMatches(text, AI_EM_DASHES)
     text = text.replace(AI_EM_DASHES, '')
   }
 
-  if (options.normalizePunctuation) {
+  if (options.normalizePunctuation && SMART_PUNCTUATION_PATTERN.test(text)) {
     const normalized = normalizeSmartPunctuation(text)
     summary.punctuationNormalized = normalized.replacements
     text = normalized.text
   }
 
-  if (options.removeEmoji) {
+  if (options.removeEmoji && EMOJI_PATTERN.test(text)) {
     summary.emojiRemoved = countMatches(text, EMOJI_PATTERN)
     text = text.replace(EMOJI_PATTERN, '')
   }
 
-  if (options.stripInvisibleChars) {
+  if (options.stripInvisibleChars && INVISIBLE_CHARACTERS.test(text)) {
     summary.invisibleCharsRemoved = countMatches(text, INVISIBLE_CHARACTERS)
     text = text.replace(INVISIBLE_CHARACTERS, '')
   }

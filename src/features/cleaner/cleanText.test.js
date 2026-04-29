@@ -356,6 +356,23 @@ describe('cleanText', () => {
     expect(result.modeSummary.stats).toContainEqual({ label: 'Reply format detected', value: 'Reply separator' })
   })
 
+  it('removes forwarded message separators in email mode', () => {
+    const input = [
+      'Latest update is above.',
+      '',
+      '----- Forwarded message -----',
+      'From: Morgan Lee <morgan@example.com>',
+      'Subject: Re: Launch readiness',
+      '',
+      'Older message body',
+    ].join('\n')
+
+    const result = cleanText(input, 'email', getDefaultCleaningOptions('email'))
+
+    expect(result.cleanedText).toBe('Latest update is above.')
+    expect(result.modeSummary.stats).toContainEqual({ label: 'Reply format detected', value: 'Reply separator' })
+  })
+
   it('keeps quoted reply chains when email cleanup is explicitly disabled', () => {
     const input = [
       'Quick update before I head out.',

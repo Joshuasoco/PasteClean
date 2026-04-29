@@ -6,6 +6,10 @@ const INLINE_WHITESPACE_RUN = /([^\s\n])[^\S\n]{2,}(?=[^\s\n])/g
 const EMAIL_HEADER_NAMES = new Set(['from', 'sent', 'date', 'to', 'cc', 'bcc', 'subject', 'reply-to'])
 const WEEKDAY_OR_MONTH_PATTERN =
   /\b(?:mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\b/i
+const EMAIL_HEADER_LINE_PATTERN = /^([A-Za-z-]+):\s*(.+)$/
+const CONTINUATION_LINE_PATTERN = /^[ \t]+/
+const QUOTED_REPLY_LINE_PATTERN = /^\s*>/
+const REPLY_HINT_PATTERN = /^(?:on\b.+wrote:|from:|sent:|date:|to:|cc:|bcc:|subject:|begin forwarded message:|[- ]*forwarded message[- ]*|[-]{2,}\s*original message\s*[-]{2,})/i
 const REPLY_BOUNDARY_PATTERNS = [
   /^On .+wrote:$/i,
   /^-{2,}\s*Original Message\s*-{2,}$/i,
@@ -14,7 +18,7 @@ const REPLY_BOUNDARY_PATTERNS = [
 ]
 
 function parseHeaderLine(line) {
-  const match = line.match(/^([A-Za-z-]+):\s*(.+)$/)
+  const match = line.match(EMAIL_HEADER_LINE_PATTERN)
 
   if (!match) {
     return null
@@ -58,6 +62,10 @@ function detectHeaderBlock(lines, startIndex) {
   let cursor = startIndex
   let previousWasHeader = false
 
+  if (!EMAIL_HEADER_LINE_PATTERN.test(lines[startIndex].trim())) {
+    return null
+  }
+
   while (cursor < lines.length) {
     const line = lines[cursor]
     const trimmedLine = line.trim()
@@ -79,7 +87,7 @@ function detectHeaderBlock(lines, startIndex) {
       continue
     }
 
-    if (previousWasHeader && /^[ \t]+/.test(line)) {
+    if (previousWasHeader && CONTINUATION_LINE_PATTERN.test(line)) {
       continuationLines += 1
       cursor += 1
       continue
@@ -123,6 +131,10 @@ function detectReplyBoundary(lines, startIndex) {
     }
   }
 
+  if (!REPLY_HINT_PATTERN.test(trimmedLine)) {
+    return null
+  }
+
   const headerBlock = detectHeaderBlock(lines, startIndex)
 
   if (headerBlock) {
@@ -157,7 +169,7 @@ export function stripQuotedEmailChain(text, options = {}) {
       }
     }
 
-    if (options.removeQuotedEmailChain !== false && /^\s*>/.test(line)) {
+    if (options.removeQuotedEmailChain !== false && QUOTED_REPLY_LINE_PATTERN.test(line)) {
       quotedLinesRemoved += 1
       continue
     }

@@ -62,6 +62,7 @@ describe('buildOutputChangeSummary', () => {
 
     const summary = buildOutputChangeSummary(result, { changed: true, removedCount: 1, addedCount: 1 })
 
+    expect(summary.note).toContain('Shared cleanup and mode-specific cleanup are reported separately.')
     expect(summary.rulesRun.global).toContain('Custom find/replace (2 active)')
     expect(summary.rulesRun.mode).toContain('Code mode cleanup')
     expect(summary.rulesRun.mode).toContain('Preserve code tokens and string literals')
