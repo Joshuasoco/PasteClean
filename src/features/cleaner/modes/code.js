@@ -1,4 +1,4 @@
-import { passthroughStage } from './strategy'
+import { defineModeStrategy, passthroughStage } from './strategy'
 
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{4,}/g
@@ -222,7 +222,7 @@ function postprocess(text, options = {}) {
   }
 }
 
-export const codeMode = {
+export const codeMode = defineModeStrategy({
   id: 'code',
   label: 'Code',
   displayLabel: 'Code',
@@ -247,4 +247,4 @@ export const codeMode = {
   preprocess,
   transform,
   postprocess,
-}
+})

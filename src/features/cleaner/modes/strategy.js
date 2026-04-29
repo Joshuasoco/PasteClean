@@ -2,6 +2,15 @@ export function passthroughStage(text) {
   return { text }
 }
 
+export function defineModeStrategy(modeDefinition) {
+  return {
+    rules: [],
+    sample: '',
+    defaultCleaningOptions: {},
+    ...modeDefinition,
+  }
+}
+
 export function normalizeStageResult(result, fallbackText) {
   if (typeof result === 'string') {
     return { text: result, summary: null }

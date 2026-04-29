@@ -1,4 +1,4 @@
-import { passthroughStage } from './strategy'
+import { defineModeStrategy, passthroughStage } from './strategy'
 
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
@@ -232,7 +232,7 @@ function postprocess(text, options = {}) {
   }
 }
 
-export const markdownMode = {
+export const markdownMode = defineModeStrategy({
   id: 'markdown',
   label: 'Markdown',
   displayLabel: 'Markdown',
@@ -260,4 +260,4 @@ const docs = "https://example.com/A%20B?utm_source=test&keep=1";
   preprocess,
   transform,
   postprocess,
-}
+})

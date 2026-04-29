@@ -67,4 +67,18 @@ describe('cleaner modes', () => {
       stripInvisibleChars: false,
     })
   })
+
+  it('keeps each mode self-contained with sample text, rules, and policy flags', () => {
+    for (const mode of getModes()) {
+      expect(typeof mode.sample).toBe('string')
+      expect(mode.sample.length).toBeGreaterThan(0)
+      expect(Array.isArray(mode.rules)).toBe(true)
+      expect(mode.rules.length).toBeGreaterThan(0)
+      expect(typeof mode.defaultCleaningOptions).toBe('object')
+      expect(mode.defaultCleaningOptions).not.toBeNull()
+      expect(typeof mode.shouldCleanUrls).toBe('boolean')
+      expect(typeof mode.shouldNormalizePunctuation).toBe('boolean')
+      expect(typeof mode.shouldDecodeHtmlEntities).toBe('boolean')
+    }
+  })
 })

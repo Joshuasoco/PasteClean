@@ -1,4 +1,4 @@
-import { passthroughStage } from './strategy'
+import { defineModeStrategy, passthroughStage } from './strategy'
 
 const TRAILING_WHITESPACE = /[^\S\n]+$/gm
 const EXCESS_BLANK_LINES = /\n{3,}/g
@@ -208,7 +208,7 @@ function transform(text, options = {}) {
   }
 }
 
-export const emailMode = {
+export const emailMode = defineModeStrategy({
   id: 'email',
   label: 'Email',
   displayLabel: 'Email',
@@ -239,4 +239,4 @@ On Tue, Apr 1, 2026 at 9:14 AM Morgan wrote:
   preprocess: passthroughStage,
   transform,
   postprocess: passthroughStage,
-}
+})
