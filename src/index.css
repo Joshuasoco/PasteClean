@@ -20,16 +20,21 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #101614;
-  --ink: #edf4ee;
-  --paper: #19211e;
-  --card: #151b19;
-  --card-soft: #202927;
-  --accent: #24d36d;
-  --accent-2: #ff8a74;
-  --line: #d8e3d8;
-  --shadow: 5px 5px 0 rgba(0, 0, 0, 0.42);
-  --shadow-soft: 3px 3px 0 rgba(0, 0, 0, 0.34);
+  --bg: #0c1110;
+  --ink: #d8e1db;
+  --paper: #141a18;
+  --card: #111614;
+  --card-soft: #18211d;
+  --accent: #4dd184;
+  --accent-2: #d97b6b;
+  --line: #8f9d96;
+  --shadow: 5px 5px 0 rgba(0, 0, 0, 0.35);
+  --shadow-soft: 3px 3px 0 rgba(0, 0, 0, 0.26);
+  --dark-panel: #121815;
+  --dark-panel-alt: #17211d;
+  --dark-elevated: #1a2320;
+  --dark-muted: #222e29;
+  --dark-warn: #3c2722;
 }
 
 * {
@@ -60,15 +65,9 @@ body {
 html[data-theme='dark'],
 html[data-theme='dark'] body {
   background:
-    radial-gradient(circle at top left, rgba(36, 211, 109, 0.12), transparent 32%),
-    linear-gradient(145deg, rgba(18, 27, 24, 0.98), rgba(13, 18, 17, 0.96) 42%, rgba(10, 13, 13, 0.96)),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(255, 255, 255, 0.04) 0,
-      rgba(255, 255, 255, 0.04) 10px,
-      rgba(255, 255, 255, 0) 10px,
-      rgba(255, 255, 255, 0) 22px
-    );
+    radial-gradient(circle at top left, rgba(77, 209, 132, 0.08), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.03), transparent 30%),
+    linear-gradient(145deg, rgba(17, 23, 22, 0.99), rgba(11, 15, 14, 0.98) 48%, rgba(8, 11, 11, 0.98));
 }
 
 button,
@@ -281,18 +280,18 @@ html[data-theme='dark'] .pcLegalSection p {
 html[data-theme='dark'] .pcStatusPillQuiet,
 html[data-theme='dark'] .pcSwitchOff,
 html[data-theme='dark'] .pcToggleMark {
-  background: #44504b;
+  background: var(--dark-muted);
 }
 
 html[data-theme='dark'] .pcEmptyState,
 html[data-theme='dark'] .pcModeGuideSection,
 html[data-theme='dark'] .pcDiffCard {
-  background: #1b2321;
+  background: var(--dark-elevated);
 }
 
 html[data-theme='dark'] .pcEmptyStatePending,
 html[data-theme='dark'] .pcOutputStatePending {
-  background: #4b4022;
+  background: #3f3520;
 }
 
 html[data-theme='dark'] .pcStatusPillReady,
@@ -300,7 +299,7 @@ html[data-theme='dark'] .pcModeToggleCardActive,
 html[data-theme='dark'] .pcOutputStateIdle,
 html[data-theme='dark'] .pcOutputChangesActive,
 html[data-theme='dark'] .pcCustomRuleItemOn {
-  background: #1f3a2a;
+  background: #20382c;
 }
 
 html[data-theme='dark'] .pcStatusPillWarn,
@@ -310,12 +309,12 @@ html[data-theme='dark'] .pcOutputStateWarn,
 html[data-theme='dark'] .pcOutputWarningList,
 html[data-theme='dark'] .pcSummaryToggleWarn,
 html[data-theme='dark'] .pcCustomRuleDelete {
-  background: #4b2b26;
+  background: var(--dark-warn);
 }
 
 html[data-theme='dark'] .pcOutputStateEmpty,
 html[data-theme='dark'] .pcOutputChangesQuiet {
-  background: #262d2a;
+  background: #202825;
 }
 
 html[data-theme='dark'] .pcPillState,
@@ -327,7 +326,7 @@ html[data-theme='dark'] .pcEditor,
 html[data-theme='dark'] .pcCustomRuleInput,
 html[data-theme='dark'] .pcBoardSelect,
 html[data-theme='dark'] .pcBoardItem {
-  background: #121816;
+  background: var(--dark-panel);
   color: var(--ink);
 }
 
@@ -355,17 +354,17 @@ html[data-theme='dark'] .pcToggleMarkOn {
 }
 
 html[data-theme='dark'] .pcEditorPreview {
-  background: #17211d;
+  background: var(--dark-panel-alt);
 }
 
 html[data-theme='dark'] .pcOutputEmptyState,
 html[data-theme='dark'] .pcDiffText {
-  background: #141b19;
+  background: #121815;
 }
 
 html[data-theme='dark'] .pcEditor:focus,
 html[data-theme='dark'] .pcCustomRuleInput:focus {
-  background: #1a2420;
+  background: #18211d;
 }
 
 html[data-theme='dark'] .pcDiffSegmentRemoved {
@@ -377,16 +376,16 @@ html[data-theme='dark'] .pcDiffSegmentAdded {
 }
 
 html[data-theme='dark'] .pcDiffText {
-  border-color: #7f8b84;
+  border-color: #7d8a83;
 }
 
 html[data-theme='dark'] .pcToast {
-  background: #203229;
+  background: #1f2f27;
   color: var(--ink);
 }
 
 html[data-theme='dark'] .pcLegalBackdrop {
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(0, 0, 0, 0.54);
 }
 
 .pcMenuStatusRow {
